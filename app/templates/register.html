@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block content %}
+{% load static %}
+{%load crispy_forms_tags %} 
+
+<div class="container">
+    <h2>Cadastro</h2>
+    <form method="post" class="mt-4" action="{% url 'register' %}">
+        {% csrf_token %}
+        {% crispy form %}
+    </form>
+</div>
+          
+
+
+<script>
+
+    // Hides fields that are only for therapists
+    var userTypeSelect = document.getElementById('id_user_type');
+    const especialidade = document.getElementById('div_id_especialidade');
+    const publico = document.getElementById('div_id_publico');
+    const formacao = document.getElementById('div_id_formacao');
+    therapistFields=[especialidade, publico, formacao]
+
+    
+    userTypeSelect.addEventListener('change', () => {
+    if (userTypeSelect.value === 'terapeuta') {
+        therapistFields.forEach(field => field.classList.remove('d-none'));
+    } else {
+        therapistFields.forEach(field => field.classList.add('d-none'));
+    }
+});
+
+    //Populates the cities field with cities from the selected state
+    $(document).ready(function() {
+    $('#id_estado').on('change', function() {
+        let regionId = $(this).val();
+        console.log(regionId);
+        if (regionId) {
+            $.ajax({
+                url: `{% url 'get_cities' 0 %}`.replace('0', regionId),
+                success: function(data) {
+                    $('#id_cidade').html(optionsForSelect(data));
+                    $('#id_cidade').prop('disabled', false);
+                }
+            });
+        } else {
+            $('#id_cidade').html('<option value="">Cidade</option>');
+            $('#id_cidade').prop('disabled', true);
+        }
+    });
+
+    function optionsForSelect(data) {
+        let options = '<option value="">Select</option>';
+        for (let i = 0; i < data.length; i++) {
+            options += '<option value="' + data[i].id + '">' + data[i].name + '</option>';
+        }
+        return options;
+    }
+    });
+
+
+//Auto completes the birthday field with /
+    $(document).ready(function () {
+        $('#id_nascimento').on('input', function () {
+            const input = $(this);
+            const value = input.val();
+            if (/^\d{2}$/.test(value)) {
+                input.val(value + '/');
+            } else if (/^\d{2}\/\d{2}$/.test(value)) {
+                input.val(value + '/');
+            }
+        });
+    });    
+
+
+    //Changes the text on the Bio field depending on user_type
+    var bioField = document.getElementById('bio-field');
+    
+    userTypeSelect.addEventListener('change', function() {
+        var selectedUserType = userTypeSelect.value;
+        if (selectedUserType === 'terapeuta') {
+            bioField.placeholder = 'Digite aqui a sua formação e experiência profissional';
+        } else if (selectedUserType === 'paciente') {
+            bioField.placeholder = 'Digite aqui uma breve descrição sobre você';
+        } else {
+            bioField.placeholder = 'Digite aqui';
+        }
+    });
+</script>
+
+
+        
+{% endblock content %}

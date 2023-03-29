@@ -1,0 +1,15 @@
+{% autoescape off %}
+Olá,
+
+você recebeu um pedido de agendamento de
+
+{{ agendamento.terapeuta.nome }}
+{{ agendamento.paciente.nome }}
+Horario: {{ agendamento.horario }}
+Duração: {{ agendamento.duracao }} minutos
+Preço da consulta: R$ {{ agendamento.terapeuta.preco }}
+Mensagem: {{agendamento.mensagem}}
+
+<a href="https://your-domain.com/confirm-agendamento/{{ agendamento.confirmation_token }}" style="background-color: #007bff; border: none; color: white; padding: 10px 20px; text-align: center; text-decoration: none; display: inline-block; font-size: 16px; margin: 10px 2px; cursor: pointer;">Confirmar agendamento</a>
+
+{% endautoescape %}

@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+{% block content %}
+{% load static %}
+{% load crispy_forms_tags %} 
+
+
+<main>
+    
+    
+<div class="container">
+    <h1 class="my-4">Buscar {% if user_type == 'paciente' %} terapeutas {% else %} pacientes {% endif %}</h1>
+    <form method="get" id="searchForm" class="mb-3">
+      {% crispy form %}
+    </form>
+
+    <h2 class="my-4">Resultados</h2>
+    {% if target %}
+    <table class="table table-striped">
+      <thead>
+  {% for header in columns %}
+          <th>
+            {{ header|capfirst }}
+            <a href="#" class="sorting-link" data-header="{{ header }}" onclick="sortTable(event)">
+              <i class="fa-solid fa-filter {% if sort_by == header %}{% if order == 'asc' %}text-primary{% else %}text-secondary{% endif %}{% else %}text-dark{% endif %}"></i>
+          </a>
+          
+          
+          
+            </th>
+          
+  {% endfor %}
+        </thead>
+      
+
+      <tbody id="results-table-body">
+        {% for user in target %}
+        <tr>
+          <td><a href="{% url 'perfil' user.uuid %}">{{ user.nome }}</a></td>
+          <td>{{ user.sexo }}</td>
+          <td>{{ user.idade }}</td>
+          <td>{% for idioma in user.idioma.all %}{{ idioma }}
+            {% if not forloop.last %}, {% endif %}{% endfor %}</td>
+          <td>{{ user.estado }}</td>
+          <td>{{ user.cidade }}</td>
+          {% if user_type == 'paciente' %}
+          <td>{{ user.especialidade }}</td>
+          <td>{% for publico in user.publico.all %}{{ publico }}
+            {% if not forloop.last %}, {% endif %}{% endfor %}</td>
+          <td>{{ user.formacao }}</td>
+          {% endif %}
+          <td>R$ {{ user.preco }}</td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="5">Nenhum resultado encontrado.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% endif %}
+</div>
+</main>
+
+<!-- Populate the city dropdown according to selected state -->
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+    const regionSelect = document.querySelector('#id_estado');
+    const citySelect = document.querySelector('#id_cidade');
+
+    regionSelect.addEventListener('change', function() {
+      const regionId = this.value;
+
+      fetch(`/get_cities/${regionId}/`)
+        .then(response => response.json())
+        .then(cities => {
+          // Clear the city select options
+          citySelect.innerHTML = '';
+
+          // Add a default empty option
+          const defaultOption = document.createElement('option');
+          defaultOption.value = '';
+          defaultOption.text = '---------';
+          citySelect.add(defaultOption);
+
+          // Populate the city select with new options
+          cities.forEach(city => {
+            const option = document.createElement('option');
+            option.value = city.id;
+            option.text = city.name;
+            citySelect.add(option);
+          });
+        });
+    });
+  });
+
+//Define filter behavior
+function sortTable(event) {
+    event.preventDefault();
+    const link = event.target.closest('.sorting-link');
+    const header = link.dataset.header;
+    const icon = link.children[0];
+
+    const url = new URL(window.location);
+
+    let currentOrder = url.searchParams.get('order');
+    let currentSortBy = url.searchParams.get('sort_by');
+
+    let newOrder = '';
+    if (currentSortBy === header) {
+        if (currentOrder === 'asc') {
+            newOrder = 'desc';
+        } else if (currentOrder === 'desc') {
+            newOrder = '';
+        } else {
+            newOrder = 'asc';
+        }
+    } else {
+        newOrder = 'asc';
+    }
+
+    icon.classList.remove('text-primary', 'text-secondary', 'text-dark');
+    icon.classList.add(newOrder === 'asc' ? 'text-primary' : newOrder === 'desc' ? 'text-secondary' : 'text-dark');
+
+    if (newOrder === '') {
+        url.searchParams.delete('sort_by');
+        url.searchParams.delete('order');
+    } else {
+        url.searchParams.set('sort_by', header);
+        url.searchParams.set('order', newOrder);
+    }
+    window.location = url.toString();
+}
+
+
+
+
+//Populate field with placeholders
+document.addEventListener('DOMContentLoaded', function() {
+        $('.selectmultiple').select2();
+    });
+
+</script>
+{% endblock content %}

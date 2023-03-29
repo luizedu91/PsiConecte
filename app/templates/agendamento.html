@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block content %}
+{% load static %}
+
+{%load crispy_forms_tags %} 
+
+
+
+<main>
+    <section class="dashboard-section bg-light">
+        <h2 class="text-center">Agendar consulta</h2>
+       
+        <body>
+            <div class="container">
+                <form method="post">
+                    {% csrf_token %}
+                    {% crispy form %}
+                    <button type="submit" class="btn btn-primary">Enviar email</button>
+                </form>
+            </div>
+</body>
+</section>
+</main>
+
+
+
+{% endblock content %}

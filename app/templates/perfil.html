@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block content %}
+{% load static %}
+
+<main>
+    <section class="dashboard-section bg-light">
+        <div class="container">
+
+            <div class="row">
+                <div class="col-12 text-center">
+                    <h2>{{ user.nome }}</h2>
+                </div>
+                <div class="col-md-2">
+                {% if user.uuid == request.user.uuid %}
+                    <a class="btn btn-outline-secondary" href="{% url 'editar_perfil' %}">Editar</a>
+                 {% endif %}
+                </div>
+            </div>
+    
+            <div class="row d-flex align-items-center">
+                <div class="col-md-4">
+                    {% if user.profile_picture.url %}
+                        <img src="{{ user.profile_picture.url }}" alt="Foto de {{ user.nome }}" class="img-fluid" width="150" height="150">
+                   {% endif %}
+                </div>
+                <div class="col-md-6">
+                    <p><strong>Localização:</strong> {{ user.cidade }}, {{ user.estado }}</p>
+                    {% if user.terapeuta %}
+                        <p><strong>Especialidade:</strong> {{ user.terapeuta.especialidade }}</p>
+                        <p><strong>Preço:</strong> {{ user.terapeuta.preco }}</p>
+                    {% endif %}
+                    <p><strong>Bio:</strong> {{ user.bio }}</p>
+                </div>
+                {% if user.uuid != request.user.uuid %}
+                   <div class="col-md-2">
+                    <a href="{% url 'agendamento' uuid=user.uuid %}" class="btn btn-primary">Solicitar agendamento</a>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </section>
+        
+</main>
+
+{% endblock content %}

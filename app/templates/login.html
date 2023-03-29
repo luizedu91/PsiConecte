@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block content %}
+{% load static %}
+{% load crispy_forms_tags %} 
+
+<main>
+    <section class="login-section">
+        <h2 class="text-center mb-4">Login</h2>
+        <form col-md6 method="post" action="{% url 'login' %}">
+            {% csrf_token %}
+            {% crispy form %}
+        </form>
+        {% if error_message %}
+        <div class="alert alert-danger">{{ error_message }}</div>
+        {% endif %} 
+    </section>
+</main>
+
+{% endblock content %}
