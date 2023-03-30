@@ -25,11 +25,16 @@
                 </div>
                 <div class="col-md-6">
                     <p><strong>Localização:</strong> {{ user.cidade }}, {{ user.estado }}</p>
-                    {% if user.terapeuta %}
-                        <p><strong>Especialidade:</strong> {{ user.terapeuta.especialidade }}</p>
-                        <p><strong>Preço:</strong> {{ user.terapeuta.preco }}</p>
-                    {% endif %}
                     <p><strong>Bio:</strong> {{ user.bio }}</p>
+                    <p><strong>Gênero:</strong> {{ user.sexo }}</p>
+                    <p><strong>Idiomas:</strong> {% for idioma in user.idioma.all %}
+                        {{ idioma }}{% if not forloop.last %}, {% endif %}{% endfor %}</p>
+                    <p><strong>Bio:</strong> {{ user.bio }}</p>
+                {% if user.user_type == 'terapeuta' %}
+                    <p><strong>Preço da consulta:</strong> {{ user.preco }}</p>
+                    <p><strong>Especialidade:</strong> {{ user.especialidade }}</p>
+                    <p><strong>Formação Acadêmica:</strong> {{ user.formacao }}</p>
+                {% endif %}
                 </div>
                 {% if user.uuid != request.user.uuid %}
                    <div class="col-md-2">

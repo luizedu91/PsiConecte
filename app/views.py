@@ -1,8 +1,11 @@
 from django.utils import timezone
+from django.urls import reverse
 from django.utils.timezone import now
 import json
 from django.views.decorators.http import require_POST
-from django.core.mail import send_mail
+from django.core.mail import EmailMultiAlternatives
+from django.template.loader import render_to_string
+from django.utils.html import strip_tags
 from django.template.loader import render_to_string
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required 
@@ -10,11 +13,10 @@ from django.contrib.auth import login, logout, authenticate, update_session_auth
 from django.contrib import messages
 from datetime import date, timedelta
 from django.db.models import F, ExpressionWrapper, fields
-from django.db.models.functions import ExtractYear, TruncDate
-from django.http import JsonResponse, HttpResponseForbidden
+from django.db.models.functions import ExtractYear
+from django.http import JsonResponse, HttpResponseForbidden, HttpResponseRedirect
 from .models import *
 from .forms import *
-
 
 def login_view(request):
     if request.user.is_authenticated:
@@ -167,41 +169,39 @@ def agendamento(request, uuid=None):
 
     if request.method == "POST":
         form = AgendamentoForm(request.POST, user_type=user_type, user=request.user, target_user = target_user)
-
-        '''if user_type=='paciente':
-            form.fields['terapeuta'].queryset = CustomUser.objects.filter(user_type='terapeuta')
-        else:
-            form.fields['paciente'].queryset = CustomUser.objects.filter(user_type='paciente')
-'''
         if form.is_valid():
             agendamento = form.save(commit=False)
-
+           
             if user_type=='terapeuta':
-                agendamento.terapeuta = user.terapeuta
+                terapeuta = user
+                paciente = form.cleaned_data['paciente']
+                agendamento.terapeuta = user
                 recipient_email = agendamento.paciente.email
             else:
-                agendamento.paciente = user.paciente
+                terapeuta = form.cleaned_data['terapeuta']
+                paciente = user
+                agendamento.paciente = user
                 recipient_email = agendamento.terapeuta.email
+    
+            pending_agendamento = PendingAgendamento(
+            terapeuta=terapeuta,
+            paciente=paciente,
+            horario=form.cleaned_data['horario'],
+            notas=form.cleaned_data['nota'])
 
-            # Render the email body from a template
-            email_body = render_to_string(
-                'pedido_agendamento.html',
-                {'agendamento': agendamento}
-            )
+            pending_agendamento.save()
+            confirmation_token = str(pending_agendamento.confirmation_token)
 
-            # Send the email
-            send_mail(
-                'Pedido de agendamento',
-                email_body,
-                'your-email@gmail.com',
-                [recipient_email],
-                fail_silently=False,
-            )
+            html_content = render_to_string('pedido_agendamento.html', {'agendamento': agendamento, 'confirmation_token': confirmation_token, 'mensagem':form.cleaned_data['mensagem']})
+            text_content = strip_tags(html_content)
+            msg = EmailMultiAlternatives('Pedido de Agendamento', text_content, 'luizedu.andrade@gmail.com', [recipient_email])
+            msg.attach_alternative(html_content, "text/html")
+            msg.send()
 
+            messages.success(request, "Email enviado")
             return redirect('home')
     else:
         form = AgendamentoForm(user=request.user, user_type=user_type, target_user=target_user)
-
         if user_type=='terapeuta':
             form.fields['terapeuta'].queryset = CustomUser.objects.filter(username=user)
             form.fields['paciente'].required = True
@@ -211,52 +211,80 @@ def agendamento(request, uuid=None):
 
     return render(request, 'agendamento.html', {'form': form})
 
-def register(request):
+def register_1(request):
     if request.method == "POST":
-        form = RegisterForm(request.POST, request.FILES)
+        form = UserTypeForm(request.POST)
+        if form.is_valid():
+            user_type = form.cleaned_data['user_type']
+            request.session['user_type'] = user_type
+            request.session['email'] = form.cleaned_data['email']
+            request.session['username'] = form.cleaned_data['username']
+            request.session['password1'] = form.cleaned_data['password1']
+            request.session['password2'] = form.cleaned_data['password2']
+            return HttpResponseRedirect(reverse('register_2'))
+        else:
+            print("Form errors:", form.errors)  
+        
+    else:
+        form = UserTypeForm()
+    return render(request, 'register_1.html', {'form': form})
+    
+def register_2(request):
+    user_type = request.session.get('user_type')
+    if user_type is None:
+        return HttpResponseRedirect(reverse('register'))
+
+    if request.method == 'POST':
+        email = request.session.get('email')
+        username = request.session.get('username')
+        password1 = request.session.get('password1')
+        form = RegisterForm(data=request.POST, user_type=user_type)
         if form.is_valid():
             user = form.save(commit=False)
-            user_type = form.cleaned_data.get('user_type')
-
+            user.username = username
+            user.email = email
+            user.user_type = user_type
+            user.set_password(password1)
+            user.bio = form.cleaned_data.get('bio')
+            user.nome = form.cleaned_data.get('nome')
+            user.nascimento = form.cleaned_data.get('nascimento')
+            user.telefone = form.cleaned_data.get('telefone') 
+            user.estado = form.cleaned_data.get('estado').name
+            user.cidade = form.cleaned_data.get('cidade').name
+            user.preco = form.cleaned_data.get('preco')
+            user.sexo = form.cleaned_data.get('sexo')
+            user.save()
             if user_type == 'terapeuta':
-                especialidade = form.cleaned_data.get('especialidade')
+                user.especialidade = form.cleaned_data.get('especialidade')
                 publico = form.cleaned_data.get('publico')
-                formacao = form.cleaned_data.get('formacao')
-                user.especialidade = especialidade
-                user.formacao = formacao
-                user.user_type = 'terapeuta'
+                user.formacao = form.cleaned_data.get('formacao')
                 user.save()
                 user.publico.set(publico)
-
-            elif user_type == 'paciente':
-                user.user_type = 'paciente'
-                user.save()
-
-            username = form.cleaned_data.get('username')
-            password = form.cleaned_data.get('password1')
-            user = authenticate(username=username, password=password)
-            login(request, user)
-            return redirect('home')
-
-        else:
-            print("Form is not valid")
+            idioma = form.cleaned_data.get('idioma')
+            user.idioma.set(idioma)
+            return redirect('/home')
     else:
-        form = RegisterForm()
-    states = Region.objects.order_by('name')
-    context = {
-        'regions': states,
-        'form': form
-    }
-    return render(request, 'register.html', context)
+        form = RegisterForm(user_type=user_type)
+
+    return render(request, 'register_2.html', {'form': form, 'regions': Region.objects.order_by('name')})
 
 def get_cities(request, region_id):
     cities = list(City.objects.filter(region_id=region_id).values())
     return JsonResponse(cities, safe=False)
 
 def confirmado(request, confirmation_token):
-    agendamento = get_object_or_404(Evento, confirmation_token=confirmation_token)
+    pending_agendamento = get_object_or_404(PendingAgendamento, confirmation_token=confirmation_token)
+    
+    agendamento = Evento(
+        terapeuta=pending_agendamento.terapeuta,
+        paciente=pending_agendamento.paciente,
+        horario=pending_agendamento.horario,
+        notas=pending_agendamento.notas)
     agendamento.save()
-    return render(request, 'confirmado.html')
+    pending_agendamento.delete()
+
+    messages.success(request, "Agendamento confirmado")
+    return redirect('home')
 
 @login_required(login_url='login')
 def perfil(request, user_uuid):
@@ -297,14 +325,12 @@ def editar_perfil(request):
         if form.is_valid():
             form.save()
             return redirect('perfil', user_uuid=request.user.uuid)
-        else:
-            print('form not valid')
     else:
         form = CustomUserUpdateForm(instance=request.user, user_type=user_type)
         return render(request, 'editar_perfil.html', {'form': form})
 
 @login_required(login_url='login')  
-def custom_password_change(request):
+def custom_password_change(request): 
     if request.method == 'POST':
         form = CustomPasswordChangeForm(request.user, request.POST)
         if form.is_valid():
@@ -320,3 +346,16 @@ def custom_password_change(request):
         form = CustomPasswordChangeForm(request.user)
 
     return render(request, 'mudar_senha.html', {'form': form})
+
+
+
+''' for debugging
+for attr in dir(user):
+    if not attr.startswith('_'):
+        try:
+            value = getattr(user, attr)
+            if not isinstance(value, (models.Manager, property)):
+                print(f"{attr}: {value}")
+        except AttributeError:
+            pass'''
+

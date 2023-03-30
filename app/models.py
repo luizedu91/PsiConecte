@@ -53,7 +53,7 @@ class CustomUser(AbstractUser):
     estado = models.CharField(max_length=50, blank=True, null=True)
     cidade = models.CharField(max_length=50, blank=True, null=True)
     bio = models.TextField(blank=True, null=True)
-    preco = models.DecimalField(default=0, max_digits=20, decimal_places=2, verbose_name='Preço') 
+    preco = models.DecimalField(default=0, max_digits=20, decimal_places=2, verbose_name='Preço', blank=True, null=True) 
     sexo = models.CharField(max_length=100, choices=GENDER)
     idioma = models.ManyToManyField(Linguas)
 
@@ -99,4 +99,11 @@ class Evento(models.Model):
         permissions = [
             ("delete_event", ("Pode deletar agendamentos")),
         ]
-        
+
+class PendingAgendamento(models.Model):
+    confirmation_token = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    terapeuta = models.ForeignKey(CustomUser, related_name='pending_terapeuta', on_delete=models.CASCADE)
+    paciente = models.ForeignKey(CustomUser, related_name='pending_paciente', on_delete=models.CASCADE)
+    horario = models.DateTimeField(blank=True, null=True)
+    duracao = models.DecimalField(default=0, max_digits=3, decimal_places=0, verbose_name='Duração (min)')
+    notas = models.TextField(blank=True, null=True)

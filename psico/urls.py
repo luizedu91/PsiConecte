@@ -1,15 +1,17 @@
 from django.contrib import admin
 from django.conf import settings
 from django.conf.urls.static import static
-from django.urls import path
+from django.urls import path, include
 from django.contrib.auth.views import PasswordChangeDoneView
 from app.views import *
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', home, name="home"),
-    path('register/', register, name="register"),
+    path('register/', register_1, name='register_1'),
+    path('register/step-2/', register_2, name='register_2'),
     path('logout/', logout_view, name="logout"),
+    path('__debug__/', include('debug_toolbar.urls')),
     path('get_cities/<int:region_id>/', get_cities, name='get_cities'),
     path('login/', login_view, name='login'),
     path('home/', home, name='home'),

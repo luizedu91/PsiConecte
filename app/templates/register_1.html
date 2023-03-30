@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% load crispy_forms_tags %}
+{% load widget_tweaks %}
+
+{% block content %}
+    <form method="post">
+        {% csrf_token %}
+        <div class="row">
+            <div class="col-12">
+                <div class="btn-toolbar mb-3 w-50 mx-auto" role="toolbar" aria-label="Toolbar with button groups">
+                    <div class="btn-group w-100" role="group" aria-label="First group">
+                        <button type="button" class="btn btn-outline-primary" name="terapeuta" id="terapeuta" {% if choice.data.selected %}checked{% endif %}>Terapeuta
+                            <input type="hidden" name="terapeuta" id="terapeuta-hidden" value="terapeuta">
+                        </button>
+                        <button type="button" class="btn btn-outline-primary" name="paciente" id="paciente" {% if choice.data.selected %}checked{% endif %}>Paciente
+                            <input type="hidden" name="paciente" id="paciente-hidden" value="paciente">
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% crispy form %}
+    </form>
+    
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        var terapeutaButton = document.querySelector('#terapeuta');
+        var pacienteButton = document.querySelector('#paciente');
+        var terapeutaHidden = document.querySelector('#terapeuta-hidden');
+        var pacienteHidden = document.querySelector('#paciente-hidden');
+
+        function selectButton(button, hiddenInput) {
+            button.classList.remove('btn-outline-primary');
+            button.classList.add('btn-primary');
+            hiddenInput.setAttribute('name', '{{ form.user_type.html_name }}');
+        }
+
+        function deselectButton(button, hiddenInput) {
+            button.classList.remove('btn-primary');
+            button.classList.add('btn-outline-primary');
+            hiddenInput.removeAttribute('name');
+        }
+
+        terapeutaButton.addEventListener('click', function() {
+            selectButton(terapeutaButton, terapeutaHidden);
+            deselectButton(pacienteButton, pacienteHidden);
+        });
+
+        pacienteButton.addEventListener('click', function() {
+            selectButton(pacienteButton, pacienteHidden);
+            deselectButton(terapeutaButton, terapeutaHidden);
+        });
+    });
+</script>
+{% endblock %}

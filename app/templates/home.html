@@ -89,7 +89,16 @@
     </div>
   </section>
 </main>
-
+{% if messages %}
+<div class="messages">
+    {% for message in messages %}
+    <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+        {{ message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+    {% endfor %}
+</div>
+{%endif%}
 
 <!-- Makes edit button create a form to edit notes. Adds a smooth transition. -->
   <script>
@@ -149,10 +158,9 @@ document.querySelectorAll(".cancel-edit").forEach((button) => {
 });
 
 });
-  </script>
 
-<!-- Makes the cancel button work -->
-<script>
+//Makes the cancel button work 
+
   const cancelButtons = document.querySelectorAll('.cancelar');
   cancelButtons.forEach(button => {
     
@@ -174,6 +182,12 @@ document.querySelectorAll(".cancel-edit").forEach((button) => {
           });
       });
   });
+
+  //Display message when being redirected to /home
+  setTimeout(function() {
+        const alerts = document.querySelectorAll('.alert-dismissible');
+        alerts.forEach(alert => alert.querySelector('.btn-close').click());
+    }, 3000);  // Adjust the time (in milliseconds) to control how long the message is displayed
 </script>
 
   
