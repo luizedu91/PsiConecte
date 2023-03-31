@@ -5,9 +5,10 @@
 {% block content %}
   <h1>Editar Perfil</h1>
   <div class="row">
-    <div class="col-md-8">
+    <div class="col-md-12">
       <form method="post" enctype="multipart/form-data">
         {% csrf_token %}
+        {{ form.errors }}
         {% crispy form %}
         <div class="form-group">
           <a href="{% url 'mudar_senha' %}" class="btn btn-secondary">Alterar senha</a>

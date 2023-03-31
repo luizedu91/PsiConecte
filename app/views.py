@@ -11,12 +11,13 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required 
 from django.contrib.auth import login, logout, authenticate, update_session_auth_hash
 from django.contrib import messages
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime
 from django.db.models import F, ExpressionWrapper, fields
 from django.db.models.functions import ExtractYear
 from django.http import JsonResponse, HttpResponseForbidden, HttpResponseRedirect
 from .models import *
 from .forms import *
+from .utils import *
 
 def login_view(request):
     if request.user.is_authenticated:
@@ -59,17 +60,14 @@ def home(request):
 @login_required(login_url='login')
 def buscar(request):
     user = request.user
-    is_terapeuta = hasattr(user, 'terapeuta')
+    user_type = user.user_type
 
-    if is_terapeuta:
-        user_type = 'terapeuta'
+    if user_type == 'terapeuta':
         target = CustomUser.objects.filter(user_type='paciente')
         form = SearchForm(request.GET, user=request.user, user_type=user_type)
         columns = ['Nome', 'Gênero', 'Idade', 'Idiomas', 'Estado', 'Cidade', 'Preço']
-
     else:
         columns = ['Nome', 'Gênero', 'Idade', 'Idiomas', 'Estado', 'Cidade', 'Linha Teórica', 'Público Alvo', 'Formação Acadêmica', 'Preço']
-        user_type = 'paciente'
         target = CustomUser.objects.filter(user_type='terapeuta')
         form = SearchForm(request.GET, user=request.user, user_type=user_type)
 
@@ -262,6 +260,7 @@ def register_2(request):
                 user.publico.set(publico)
             idioma = form.cleaned_data.get('idioma')
             user.idioma.set(idioma)
+            authenticate(username,password1)
             return redirect('/home')
     else:
         form = RegisterForm(user_type=user_type)
@@ -302,12 +301,12 @@ def atualizar_notas(request, agendamento_id):
         return JsonResponse({"error": "Agendamento não encontrado"}, status=404)
 
     data = json.loads(request.body)
-    new_notes = data.get('notes', '').strip()
+    new_notes = data.get('notas', '').strip()
 
-    agendamento.notes = new_notes
+    agendamento.notas = new_notes
     agendamento.save()
 
-    return JsonResponse({"success": True, "notes": new_notes})
+    return JsonResponse({"success": True, "notas": new_notes})
 
 @login_required(login_url='login')
 def cancelar_evento(request, agendamento_id):
@@ -319,14 +318,18 @@ def cancelar_evento(request, agendamento_id):
 
 @login_required(login_url='login')
 def editar_perfil(request):
-    user_type=request.user.user_type
     if request.method == 'POST':
         form = CustomUserUpdateForm(request.POST, request.FILES, instance=request.user)
         if form.is_valid():
-            form.save()
+            user_instance = form.save(commit=False)
+            user_instance.save()
+            if 'profile_picture' in request.FILES:
+                user_instance.foto = request.FILES['profile_picture']
+                user_instance.save()
             return redirect('perfil', user_uuid=request.user.uuid)
+
     else:
-        form = CustomUserUpdateForm(instance=request.user, user_type=user_type)
+        form = CustomUserUpdateForm(instance=request.user)
         return render(request, 'editar_perfil.html', {'form': form})
 
 @login_required(login_url='login')  

@@ -18,19 +18,12 @@
     <table class="table table-striped">
       <thead>
   {% for header in columns %}
-          <th>
-            {{ header|capfirst }}
+          <th>{{ header|capfirst }}
             <a href="#" class="sorting-link" data-header="{{ header }}" onclick="sortTable(event)">
               <i class="fa-solid fa-filter {% if sort_by == header %}{% if order == 'asc' %}text-primary{% else %}text-secondary{% endif %}{% else %}text-dark{% endif %}"></i>
-          </a>
-          
-          
-          
-            </th>
-          
+            </a></th>
   {% endfor %}
         </thead>
-      
 
       <tbody id="results-table-body">
         {% for user in target %}
@@ -93,7 +86,7 @@
     });
   });
 
-//Define filter behavior
+//Define sorting behavior
 function sortTable(event) {
     event.preventDefault();
     const link = event.target.closest('.sorting-link');

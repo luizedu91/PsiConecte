@@ -17,22 +17,24 @@
                 </div>
             </div>
     
-            <div class="row d-flex align-items-center">
-                <div class="col-md-4">
-                    {% if user.profile_picture.url %}
-                        <img src="{{ user.profile_picture.url }}" alt="Foto de {{ user.nome }}" class="img-fluid" width="150" height="150">
-                   {% endif %}
+            <div class="row col-12 d-flex align-items-center">
+                <div class="col-md-4 align-items-center">
+                    {% if user.foto and user.foto.url %}
+                    <img src="{{ user.foto.url }}" alt="Foto de {{ user.nome }}" class="img-fluid" width="200" height="200">
+                     {% endif %}
+
                 </div>
                 <div class="col-md-6">
-                    <p><strong>Localização:</strong> {{ user.cidade }}, {{ user.estado }}</p>
-                    <p><strong>Bio:</strong> {{ user.bio }}</p>
+                    <p><strong>Localização:</strong> {{ user.cidade }}</p>
                     <p><strong>Gênero:</strong> {{ user.sexo }}</p>
                     <p><strong>Idiomas:</strong> {% for idioma in user.idioma.all %}
                         {{ idioma }}{% if not forloop.last %}, {% endif %}{% endfor %}</p>
                     <p><strong>Bio:</strong> {{ user.bio }}</p>
                 {% if user.user_type == 'terapeuta' %}
-                    <p><strong>Preço da consulta:</strong> {{ user.preco }}</p>
+                    <p><strong>Valor da consulta:</strong> {{ user.preco }}</p>
                     <p><strong>Especialidade:</strong> {{ user.especialidade }}</p>
+                    <p><strong>Público Alvo:</strong> {% for publico in user.publico.all %}
+                        {{ publico }}{% if not forloop.last %}, {% endif %}{% endfor %}</p>
                     <p><strong>Formação Acadêmica:</strong> {{ user.formacao }}</p>
                 {% endif %}
                 </div>

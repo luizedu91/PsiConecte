@@ -45,7 +45,7 @@ class CustomUser(AbstractUser):
     groups = models.ManyToManyField(Group, related_name='%(app_label)s_%(class)s_groups', blank=True)
     user_permissions = models.ManyToManyField(Permission, related_name='%(app_label)s_%(class)s_permissions', blank=True)
     nome = models.CharField(max_length=100)
-    foto = models.ImageField(upload_to='profile_pictures/', blank=True, null=True)
+    foto = models.ImageField(upload_to='profile_pictures/', blank=True, null=True, default='https://tse2.mm.bing.net/th?id=OIP.Jw-MfZVo8aCZLEVTHvMZbQHaE8&pid=Api')
     nascimento = models.DateField(blank=True, null=True)
     telefone = models.CharField(max_length=30, blank=True, null=True)
     uuid =  models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -53,7 +53,7 @@ class CustomUser(AbstractUser):
     estado = models.CharField(max_length=50, blank=True, null=True)
     cidade = models.CharField(max_length=50, blank=True, null=True)
     bio = models.TextField(blank=True, null=True)
-    preco = models.DecimalField(default=0, max_digits=20, decimal_places=2, verbose_name='Preço', blank=True, null=True) 
+    preco = models.PositiveIntegerField(default=0, verbose_name='Preço', blank=True, null=True) 
     sexo = models.CharField(max_length=100, choices=GENDER)
     idioma = models.ManyToManyField(Linguas)
 
@@ -61,6 +61,7 @@ class CustomUser(AbstractUser):
     especialidade = models.CharField(max_length=100, choices=SPECIALIZATION_CHOICES, blank=True, null=True)
     publico = models.ManyToManyField(PublicoAlvo, blank=True)
     formacao = models.CharField(max_length=100, blank=True, null=True)
+    limite_eventos = models.PositiveIntegerField(null=True, blank=True)
 
     def is_terapeuta(self):
         return self.user_type == 'terapeuta'

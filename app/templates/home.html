@@ -30,13 +30,13 @@
                 <td><a href="{% url 'perfil' agendamento.paciente__uuid %}">{{ agendamento.paciente__nome  }}</a></td>
                 <td>{{ agendamento.paciente__telefone }}</td>
                 <td style="display: flex; align-items: flex-start;">
-                  <div class="notes" id="notes-{{ agendamento.id }}" style="flex: 1;">{{ agendamento.notas }}</div>
-                  <button class="btn btn-outline-secondary edit-notes" data-agendamento-id="{{ agendamento.id }}" style="margin-left: auto;">Editar</button>
+                  <div class="notas" id="notas-{{ agendamento.id }}" style="flex: 1;">{{ agendamento.notas }}</div>
+                  <button class="btn btn-outline-secondary edit-notas" data-agendamento-id="{{ agendamento.id }}" style="margin-left: auto;">Editar</button>
                   {% csrf_token %}
-                  <form class="edit-notes-form fade" id="edit-notes-form-{{ agendamento.id }}" data-agendamento-id="{{ agendamento.id }}" style="display:none; width: 100%;">
-                      <textarea class="form-control" id="new-notes-{{ agendamento.id }}" rows="3">{{ agendamento.notas }}</textarea>
+                  <form class="edit-notas-form fade" id="edit-notas-form-{{ agendamento.id }}" data-agendamento-id="{{ agendamento.id }}" style="display:none; width: 100%;">
+                      <textarea class="form-control" id="new-notas-{{ agendamento.id }}" rows="3">{{ agendamento.notas }}</textarea>
                       <div style="display: flex; justify-content: flex-end; gap: 10px;">
-                          <button class="btn btn-outline-primary save-notes" type="submit">Salvar</button>
+                          <button class="btn btn-outline-primary save-notas" type="submit">Salvar</button>
                           <button class="btn btn-outline-secondary cancel-edit" type="button">Cancelar</button>
                       </div>
                   </form></td>
@@ -100,64 +100,69 @@
 </div>
 {%endif%}
 
-<!-- Makes edit button create a form to edit notes. Adds a smooth transition. -->
-  <script>
-document.querySelectorAll(".edit-notes").forEach((button) => {
+
+<script>
+  //Makes edit button create a form to edit notas. Adds a smooth transition
+document.querySelectorAll(".edit-notas").forEach((button) => {
   button.addEventListener("click", (event) => {
     const agendamentoId = event.target.dataset.agendamentoId;
-    document.getElementById(`notes-${agendamentoId}`).classList.add("fade");
+    document.getElementById(`notas-${agendamentoId}`).classList.add("fade");
     setTimeout(() => {
-      document.getElementById(`notes-${agendamentoId}`).style.display = "none";
-      document.getElementById(`edit-notes-form-${agendamentoId}`).style.display = "block";
-      document.getElementById(`edit-notes-form-${agendamentoId}`).classList.add("show");
+      document.getElementById(`notas-${agendamentoId}`).style.display = "none";
+      document.getElementById(`edit-notas-form-${agendamentoId}`).style.display = "block";
+      document.getElementById(`edit-notas-form-${agendamentoId}`).classList.add("show");
     }, 300);
   });
 });
 
 document.querySelectorAll(".cancel-edit").forEach((button) => {
   button.addEventListener("click", (event) => {
-    const form = event.target.closest(".edit-notes-form");
+    const form = event.target.closest(".edit-notas-form");
     const agendamentoId = form.dataset.agendamentoId;
     form.classList.remove("show");
     form.classList.add("fade");
     setTimeout(() => {
       form.style.display = "none";
-      document.getElementById(`notes-${agendamentoId}`).style.display = "block";
-      document.getElementById(`notes-${agendamentoId}`).classList.remove("fade");
+      document.getElementById(`notas-${agendamentoId}`).style.display = "block";
+      document.getElementById(`notas-${agendamentoId}`).classList.remove("fade");
     }, 300);
   });
 });
+document.querySelectorAll(".edit-notas-form").forEach((form) => {
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const agendamentoId = event.target.dataset.agendamentoId;
+    const newNotes = document.getElementById(`new-notas-${agendamentoId}`).value;
 
-  document.querySelectorAll(".edit-notes-form").forEach((form) => {
-      form.addEventListener("submit", async (event) => {
-        event.preventDefault();
-        const agendamentoId = event.target.dataset.agendamentoId;
-        const newNotes = document.getElementById(`new-notes-${agendamentoId}`).value;
-  
-        try {
-          const response = await fetch(`/atualizar_notas/${agendamentoId}/`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "X-CSRFToken": document.querySelector("[name=csrfmiddlewaretoken]").value,
-            },
-            body: JSON.stringify({ notes: newNotes }),
-          });
-  
-          if (response.ok) {
-            document.getElementById(`notes-${agendamentoId}`).textContent = newNotes;
-            document.getElementById(`notes-${agendamentoId}`).style.display = "block";
-      document.getElementById(`edit-notes-form-${agendamentoId}`).style.display = "none";
-    } else {
-      throw new Error("Failed to update appointment notes");
+    try {
+      const response = await fetch(`/atualizar_notas/${agendamentoId}/`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRFToken": document.querySelector("[name=csrfmiddlewaretoken]").value,
+        },
+        body: JSON.stringify({ notas: newNotes }),
+      });
+
+      if (response.ok) {
+        document.getElementById(`notas-${agendamentoId}`).textContent = newNotes;
+        document.getElementById(`notas-${agendamentoId}`).style.display = "block";
+        document.getElementById(`edit-notas-form-${agendamentoId}`).style.display = "none";
+        setTimeout(() => {
+          form.style.display = "none";
+          document.getElementById(`notas-${agendamentoId}`).style.display = "block";
+          document.getElementById(`notas-${agendamentoId}`).classList.remove("fade");
+        }, 300);
+      } else {
+        throw new Error("Failed to update appointment notas");
+      }
+    } catch (error) {
+      console.error("Error updating appointment notas:", error);
+      alert("Failed to update appointment notas. Please try again.");
     }
-  } catch (error) {
-    console.error("Error updating appointment notes:", error);
-    alert("Failed to update appointment notes. Please try again.");
-  }
+  });
 });
 
-});
 
 //Makes the cancel button work 
 
