@@ -1,0 +1,30 @@
+{% autoescape off %}
+<!DOCTYPE html>
+
+<htmllang="en">
+<head>
+<metacharset="UTF-8"/>
+<metaname="viewport"content="width=device-width, initial-scale=1.0"/>
+</head>
+<body>
+
+    <p>Olá, {{ agendamento.paciente }}</p>
+    <p>você recebeu um pedido de agendamento de</p>
+    <p>{{ agendamento.terapeuta.nome }}<br>
+    Horario: {{ agendamento.horario }}<br>
+    Duração: {{ agendamento.duracao }} minutos<br>
+    Preço da consulta: R$ {{ agendamento.terapeuta.preco }}<br>
+    Mensagem: {{mensagem}}</p>
+
+
+<table border="0" cellspacing="0" cellpadding="0">
+    <tr>
+        <td align="center" style="border-radius: 3px;" bgcolor="#007bff">
+            <a href="http://localhost:8000/confirmado/{{ confirmation_token }}" target="_blank" style="font-size: 16px; font-family: Helvetica, Arial, sans-serif; color: #ffffff; text-decoration: none; text-decoration: none; border-radius: 3px; padding: 10px 20px; border: 1px solid #007bff; display: inline-block;">Confirmar agendamento</a>
+        </td>
+    </tr>
+</table>
+
+</body>
+</html>
+{% endautoescape %}

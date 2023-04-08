@@ -1,0 +1,338 @@
+{% extends "base.html" %}
+{% load static %}
+{% block content %}
+<head>
+<script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.5/index.global.min.js'></script>
+<style>
+.fc .fc-col-header-cell-cushion {
+  display: inline-block;
+  padding: 2px 4px;
+}
+
+.event-link-container {
+  pointer-events: none;
+}
+
+.event-link-container a {
+  pointer-events: auto;
+}
+
+a{ color:#000000; }
+
+:root {
+  --fc-small-font-size: .85em;
+  --fc-page-bg-color: #fff;
+  --fc-neutral-bg-color: rgba(208, 208, 208, 0.3);
+  --fc-neutral-text-color: #808080;
+  --fc-border-color: #ddd;
+
+  --fc-button-text-color: #fff;
+  --fc-button-bg-color: #2C3E50;
+  --fc-button-border-color: #2C3E50;
+  --fc-button-hover-bg-color: #1e2b37;
+  --fc-button-hover-border-color: #1a252f;
+  --fc-button-active-bg-color: #1a252f;
+  --fc-button-active-border-color: #151e27;
+
+  --fc-event-bg-color: #3788d8;
+  --fc-event-border-color: #3788d8;
+  --fc-event-text-color: #fff;
+  --fc-event-selected-overlay-color: rgba(0, 0, 0, 0.25);
+
+  --fc-more-link-bg-color: #d0d0d0;
+  --fc-more-link-text-color: inherit;
+
+  --fc-event-resizer-thickness: 8px;
+  --fc-event-resizer-dot-total-width: 8px;
+  --fc-event-resizer-dot-border-width: 1px;
+
+  --fc-non-business-color: rgba(215, 215, 215, 0.3);
+  --fc-bg-event-color: rgb(143, 223, 130);
+  --fc-bg-event-opacity: 0.3;
+  --fc-highlight-color: rgba(188, 232, 241, 0.3);
+  --fc-today-bg-color: rgba(255, 220, 40, 0.15);
+  --fc-now-indicator-color: red;
+}
+</style>
+
+<!-- FullCalendar Modal and Edit/Cancel buttons-->
+<script>
+let currentEvent = null;
+function showEventDetails(event) {
+    currentEvent = event;
+    const eventData = event.extendedProps;
+    const eventTitle = event.title;
+    const eventTime = eventData.time;
+    const targetPhone = eventData.target.telefone;
+    const notes = eventData.notas;
+    const agendamentoId = eventData.event_id;
+    const notasElement = document.getElementById("notas");
+    notasElement.setAttribute("data-agendamento-id", agendamentoId);
+    notasElement.textContent = notes;
+    console.log(eventData, notasElement)
+    const editNotasFormElement = document.querySelector(".edit-notas-form");
+    editNotasFormElement.setAttribute("data-agendamento-id", agendamentoId);
+    editNotasFormElement.setAttribute("id", `edit-notas-form-${agendamentoId}`);
+    const newNotasElement = document.querySelector(".edit-notas-form textarea");
+    newNotasElement.setAttribute("id", `new-notas-${agendamentoId}`);
+    document.querySelector('.cancel-edit').setAttribute('data-agendamento-id', agendamentoId);
+    
+
+
+    // Populate the modal with event information
+    document.getElementById('eventTitle').innerHTML = `<a href="/perfil/${eventData.target.uuid}">${eventTitle}</a>`;
+    document.getElementById('eventTime').textContent = eventTime;
+    document.getElementById('targetPhone').textContent = targetPhone;
+
+    // Set the data-agendamento-id attribute for both buttons
+    document.querySelector('.edit-notas').setAttribute('data-agendamento-id', agendamentoId);
+    document.querySelector('.cancelar').setAttribute('data-agendamento-id', agendamentoId);
+
+    // Show the modal
+    var eventDetailsModal = new bootstrap.Modal(document.getElementById('eventDetailsModal'));
+    eventDetailsModal.show();
+
+  // Add event listeners after the modal is shown
+  eventDetailsModal._element.addEventListener('shown.bs.modal', () => {
+    addToggleEditFormListener(agendamentoId);
+    addSaveNotasFormListener(agendamentoId);
+    addCancelAppointmentListener(agendamentoId);
+    addCancelEditListener(agendamentoId)});
+
+  // Remove event listeners when the modal is hidden
+  document.getElementById('eventDetailsModal').addEventListener('hidden.bs.modal', () => {
+    removeToggleEditFormListener(agendamentoId);
+    removeSaveNotasFormListener(agendamentoId);
+    removeCancelAppointmentListener(agendamentoId);
+    removeCancelEditListener(agendamentoId)});
+}
+
+function addToggleEditFormListener(agendamentoId) {
+  const editBtn = document.querySelector(`.edit-notas[data-agendamento-id="${agendamentoId}"]`);
+  editBtn.addEventListener("click", (event) => toggleEditFormHandler(event, agendamentoId))}
+
+function removeToggleEditFormListener(agendamentoId) {
+  const editBtn = document.querySelector(`.edit-notas[data-agendamento-id="${agendamentoId}"]`);
+  editBtn.removeEventListener("click", (event) => toggleEditFormHandler(event, agendamentoId))}
+
+function toggleEditFormHandler(event) {
+  const agendamentoId = event.currentTarget.dataset.agendamentoId;
+  toggleEditForm(agendamentoId, true)}
+
+function addSaveNotasFormListener(agendamentoId) {
+  const saveNotasBtn = document.querySelector('.save-notas');
+  saveNotasBtn.addEventListener('click', saveNotasFormHandler)}
+
+function removeSaveNotasFormListener(agendamentoId) {
+  const saveNotasBtn = document.querySelector('.save-notas');
+  saveNotasBtn.removeEventListener('click', saveNotasFormHandler)}
+
+function cancelEditHandler(agendamentoId) {
+  toggleEditForm(agendamentoId, false)}
+
+function addCancelEditListener(agendamentoId) {
+  const cancelEditBtn = document.querySelector(`.cancel-edit[data-agendamento-id="${agendamentoId}"]`);
+  cancelEditBtn.addEventListener("click", () => cancelEditHandler(agendamentoId))}
+
+function removeCancelEditListener(agendamentoId) {
+  const cancelEditBtn = document.querySelector(`.cancel-edit[data-agendamento-id="${agendamentoId}"]`);
+  cancelEditBtn.removeEventListener("click", () => cancelEditHandler(agendamentoId))}
+
+async function saveNotasFormHandler(event) {
+  event.preventDefault();
+  const agendamentoId = event.currentTarget.closest('form').dataset.agendamentoId;
+  console.log('agendamentoId:', agendamentoId);
+  const newNotasElement = document.querySelector(`#new-notas-${agendamentoId}`);
+  console.log('newNotasElement:', newNotasElement);
+
+  if (newNotasElement) {
+    const newNotes = newNotasElement.value;
+    const response = await fetch(`/atualizar_notas/${agendamentoId}/`, {
+    method: "POST",
+       headers: {
+      "Content-Type": "application/json",
+      "X-CSRFToken": document.querySelector("[name=csrfmiddlewaretoken]").value,
+      "X-Requested-With": "XMLHttpRequest",
+      },
+      body: JSON.stringify({ notas: newNotes })});
+      }
+      
+      document.querySelector(`#notas[data-agendamento-id="${agendamentoId}"]`).textContent = newNotasElement.value;
+      
+      if (currentEvent) {
+        currentEvent.setExtendedProp('notas', newNotasElement.value);
+      }
+      
+      toggleEditForm(agendamentoId, false); 
+}
+
+async function cancelAppointmentHandler(event) {
+  event.stopPropagation();
+  const agendamentoId = event.currentTarget.getAttribute('data-agendamento-id');
+  const confirmation = confirm('Tem certeza de que deseja cancelar a consulta? Uma mensagem informando do cancelamento será enviada');
+  if (confirmation){
+    fetch(`/cancelar_agendamento/${agendamentoId}/`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+    },
+    body: JSON.stringify({ agendamento_id: agendamentoId })
+  })
+    .then((response) => {
+      if (response.ok) {
+        location.reload();
+      } else {
+        console.error('Failed to cancel the appointment');
+      }
+    })
+    .catch((error) => console.error('Error:', error))}}
+
+function addCancelAppointmentListener(agendamentoId) {
+  const cancelBtn = document.querySelector(`.cancelar[data-agendamento-id="${agendamentoId}"]`);
+  cancelBtn.addEventListener("click", cancelAppointmentHandler)}
+
+function removeCancelAppointmentListener(agendamentoId) {
+  const cancelBtn = document.querySelector(`.cancelar[data-agendamento-id="${agendamentoId}"]`);
+  cancelBtn.removeEventListener("click", cancelAppointmentHandler)}
+
+</script>
+
+<!-- toggleEditForm funct ion -->
+<script>
+  function toggleEditForm(agendamentoId, showForm) {
+  const duration = 300;
+  const notasElement = document.querySelector(`#notas[data-agendamento-id="${agendamentoId}"]`);
+  const editNotasFormElement = document.querySelector(`.edit-notas-form[data-agendamento-id="${agendamentoId}"]`);
+  const editBtn = document.querySelector(`.edit-notas[data-agendamento-id="${agendamentoId}"]`);
+  const cancelBtn = document.querySelector(`.cancel-edit[data-agendamento-id="${agendamentoId}"]`);
+
+  if (showForm) {
+    notasElement.classList.add("fade");
+    editBtn.style.display = "none";
+    setTimeout(() => {
+      notasElement.style.display = "none";
+      editNotasFormElement.style.display = "block";
+      editNotasFormElement.classList.add("show");
+    }, duration)} 
+    
+  else {
+    editNotasFormElement.classList.remove("show");
+    setTimeout(() => {
+      editNotasFormElement.style.display = "none";
+      notasElement.style.display = "block";
+      notasElement.classList.remove("fade");
+    }, duration);
+    editBtn.style.display = "inline-block"}
+}
+</script>
+
+<!-- FullCalendar Core Code -->
+<script>
+// Event listener for DOMContentLoaded
+  document.addEventListener('DOMContentLoaded', function () {
+    var calendarEl = document.getElementById('calendar');
+    var calendar = new FullCalendar.Calendar(calendarEl, {
+      height:"auto",
+      contentHeight: 'auto',
+      themeSystem: 'bootstrap5',
+      timeZone: 'BRT',
+      locale: 'pt',
+      headerToolbar: {
+        start: 'dayGridMonth,timeGridWeek,listMonth',
+        center: 'title',
+        end: 'prev,next'
+      },
+      editable: false,
+      selectable: false,
+      buttonText:{
+        month:    'mês',
+        week:     'semana',
+        day:      'dia',
+        list:     'lista'
+      },
+      events: '/eventos_json/', // Fetch event data from the eventos_json view
+      eventContent: function (eventInfo) {
+        const eventData = eventInfo.event.extendedProps;
+        const eventTitle = eventInfo.event.title;
+        const eventTime = eventData.time;
+        const targetPhone = eventData.target.telefone;
+        const notes = eventData.notas;
+        const agendamentoId = eventData.event_id;
+        const targetUuid = eventData.target.uuid;
+
+        // Create the event content
+        const eventContent = document.createElement('div');
+        eventContent.setAttribute('data-notas', notes);
+        eventContent.innerHTML = ` 
+        <div class="event-link-container">
+        <i class="fa-solid fa-diamond"></i> <strong><a href="/perfil/${targetUuid}">${eventTitle}</a></strong>
+        </div>
+        ${eventTime}
+        `;
+        return { html: eventContent.outerHTML };
+      },
+      eventClick: function (eventInfo) {
+        showEventDetails(eventInfo.event)
+      },
+
+    })
+
+    calendar.render();
+  });
+</script>
+</head>
+
+<main>
+  <a class="btn btn-outline-secondary mb-3" href="{% url 'agendamento' %}">Novo agendamento</a>
+  <div id='calendar'></div>
+  <div class="modal fade" id="eventDetailsModal" tabindex="-1">
+    <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        
+        <h5 class="modal-title" id="eventTitle"></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p><strong>Horário:</strong> <span id="eventTime"></span></p>
+        <p><strong>Telefone:</strong> <span id="targetPhone"></span></p>
+        {% if user.user_type == 'terapeuta' %}
+        <p><strong>Notas:</strong> <span id="notas" class="notas-content" data-agendamento-id="{{ agendamento.id }}">{{ agendamento.notas }}</span></p>
+       <div class="event-buttons">
+            <button class="btn btn-outline-secondary edit-notas" data-agendamento-id="">Editar Notas</button>
+            {% csrf_token %}
+            <form class="edit-notas-form fade" id="edit-notas-form-{{ agendamento.id }}" data-agendamento-id="" style="display:none; width: 100%;">
+              <textarea class="form-control" id="new-notas-{{ agendamento.id }}" rows="3">{{ agendamento.notas }}</textarea>
+              <div style="display: flex; justify-content: flex-end; gap: 10px;">
+              <button class="btn btn-outline-primary save-notas" type="submit" >Salvar</button>
+              <button class="btn btn-outline-secondary cancel-edit" data-agendamento-id="" type="button">Cancelar</button>
+              </div>
+              </form>
+            <button class="btn btn-outline-secondary cancelar" data-agendamento-id=''>Cancelar Consulta</button>
+        </div>
+        {% else %}
+        <div class="event-buttons"></div>
+        <button class="btn btn-outline-secondary cancelar" data-agendamento-id=''>Cancelar Consulta</button>
+      </div>
+      {% endif %}
+      </div>  
+    </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+      </div>
+    </div>
+  </div>
+</div>
+</main>
+
+<script>
+  //Display message when being redirected to /home
+  setTimeout(function() {
+        const alerts = document.querySelectorAll('.alert-dismissible');
+        alerts.forEach(alert => alert.querySelector('.btn-close').click());
+    }, 3000);  // Adjust the time (in milliseconds) to control how long the message is displayed
+</script>
+
+
+{% endblock content %}

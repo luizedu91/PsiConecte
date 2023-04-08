@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block content %}
+{% load static %}
+{%load crispy_forms_tags %} 
+
+<div class="container">
+    <h2>Cadastro</h2>
+    <form method="post" class="mt-4" action="{% url 'register_2' %}">
+        {% csrf_token %}
+        {% crispy form %}
+    </form>
+</div>
+
+
+<script>
+    //Populates the cities field with cities from the selected state
+    $(document).ready(function() {
+    $('#id_estado').on('change', function() {
+        let regionId = $(this).val();
+        console.log(regionId);
+        if (regionId) {
+            $.ajax({
+                url: `{% url 'get_cities' 0 %}`.replace('0', regionId),
+                success: function(data) {
+                    $('#id_cidade').html(optionsForSelect(data));
+                    $('#id_cidade').prop('disabled', false);
+                }
+            });
+        } else {
+            $('#id_cidade').html('<option value="">Cidade</option>');
+            $('#id_cidade').prop('disabled', true);
+        }
+    });
+
+    function optionsForSelect(data) {
+        let options = '<option value="">Select</option>';
+        for (let i = 0; i < data.length; i++) {
+            options += '<option value="' + data[i].id + '">' + data[i].name + '</option>';
+        }
+        return options;
+    }
+    });
+
+
+//Auto completes the birthday field with /
+    $(document).ready(function () {
+        $('#id_nascimento').on('input', function () {
+            const input = $(this);
+            const value = input.val();
+            if (/^\d{2}$/.test(value)) {
+                input.val(value + '/');
+            } else if (/^\d{2}\/\d{2}$/.test(value)) {
+                input.val(value + '/');
+            }
+        });
+    });
+    
+    
+
+    
+</script>
+
+
+        
+{% endblock content %}

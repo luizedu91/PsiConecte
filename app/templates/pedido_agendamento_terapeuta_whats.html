@@ -1,0 +1,10 @@
+Olá, {{ agendamento.terapeuta.nome }}
+você recebeu um pedido de agendamento de
+{{ agendamento.paciente }}
+Horario: {{ agendamento.horario }}
+Duração: {{ agendamento.duracao }} minutos
+Preço da consulta: R$ {{ agendamento.terapeuta.preco }}
+Mensagem: {{mensagem}}
+
+Acesse o link para confirmar o agendamento
+http://localhost:8000/confirmado/{{ confirmation_token }}
