@@ -1,18 +1,10 @@
 from django.db import migrations
 
-PUBLIC_ALVO = [
-    ('crianca', 'Crianças'),
-    ('adolescente', 'Adolescentes'),
-    ('adulto', 'Adultos'),
-    ('idoso', 'Idosos'),
-    ('casais', 'Terapia de casal'),
-    ('familia', 'Famílias'),
-    ('libras', 'Libras'),
-]
+PUBLIC_ALVO = ['Crianças','Adolescentes','Adultos','Idosos','Terapia de casal','Famílias','Libras']
 
 def create_publico_alvo(apps, schema_editor):
     PublicoAlvo = apps.get_model('app', 'PublicoAlvo')
-    for _, publico in PUBLIC_ALVO:
+    for publico in PUBLIC_ALVO:
         PublicoAlvo.objects.create(publico=publico)
 
 def reverse_publico_alvo(apps, schema_editor):
@@ -21,7 +13,15 @@ def reverse_publico_alvo(apps, schema_editor):
 
 def populate_linguas(apps, schema_editor):
     Linguas = apps.get_model('app', 'Linguas')
-    languages = ['Inglês', 'Português', 'Espanhol', 'Francês', 'Alemão', 'Italiano', 'Mandarim', 'Russo', 'Árabe', 'Holandês']
+    languages = [
+     'Português','Inglês', 'Espanhol', 'Francês', 'Alemão',  'Mandarim','Italiano', 'Árabe', 'Holandês',
+    'Japonês', 'Coreano', 'Sueco', 'Norueguês', 'Dinamarquês', 'Finlandês', 'Turco', 'Grego', 'Hebraico', 'Húngaro',
+    'Tailandês', 'Checo', 'Polonês', 'Romeno', 'Búlgaro', 'Croata', 'Eslovaco', 'Esloveno', 'Ucraniano', 'Catalão',
+    'Bengali', 'Hindi', 'Urdu', 'Gujarati', 'Marathi', 'Tâmil', 'Telugu', 'Malaiala', 'Tagalo', 'Vietnamita', 'Indonésio', 'Malaio', 'Swahili', 'Islandês', 'Russo', 'Gaélico Escocês', 'Galês',
+    'Basco', 'Estoniano', 'Letão', 'Lituano', 'Maltês', 'Albanês', 'Armênio', 'Georgiano', 'Persa', 'Sérvio',
+    'Macedônio', 'Bielorrusso', 'Bósnio', 'Cazaque', 'Uzbeque', 'Azerbaijano', 'Turcomeno', 'Quirguiz', 'Tajique',
+    'Afrikaans', 'Yoruba', 'Zulu', 'Xhosa', 'Somali', 'Amárico', 'Quechua', 'Havaiano', 'Maori', 'Samoano', 'Tonganês',
+    'Cherokee', 'Navajo', 'Inuktitut', 'Esperanto']
 
     for language in languages:
         Linguas.objects.create(linguas=language)

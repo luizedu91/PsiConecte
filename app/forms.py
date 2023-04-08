@@ -7,12 +7,8 @@ from django.contrib.auth.forms import UserCreationForm, UserChangeForm, Authenti
 from crispy_forms.layout import Layout, Submit, Button, Row, Column
 from crispy_bootstrap5.bootstrap5 import FloatingField, Field
 from django.core.validators import MinValueValidator,MaxValueValidator
-from django.contrib.auth import get_user_model
 from django.forms import ModelMultipleChoiceField
 from crispy_forms.helper import FormHelper
-from datetime import datetime
-
-
 
 class RegionChoiceField(forms.ModelChoiceField):
     def label_from_instance(self, obj):
@@ -65,7 +61,18 @@ class RegisterForm(forms.ModelForm):
     publico = ModelMultipleChoiceField(queryset=PublicoAlvo.objects.all(), required=False, widget=forms.SelectMultiple(attrs={'class': 'form-select'}))
     formacao = forms.CharField(max_length=100, required=False, label='Formação Acadêmica', widget=forms.TextInput(attrs={'class': 'form-control'}))
     limite_eventos = forms.IntegerField(required=False, label='Limite mensal de agendamentos')
+    mandar_email = forms.BooleanField(required=False, label = "Permissão para que enviemos emails")
+    mandar_whats = forms.BooleanField(required=False, label = "Permissão para que enviemos mensagens de WhatsApp")
 
+    def clean(self):
+        cleaned_data = super().clean()
+        mandar_email = cleaned_data.get('mandar_email')
+        mandar_whats = cleaned_data.get('mandar_whats')
+
+        if not (mandar_email or mandar_whats):
+            raise ValidationError("É necessário selecionar pelo menos uma opção de contato (email ou WhatsApp)")
+
+        return cleaned_data
 
     class Meta:
         model = CustomUser
@@ -77,7 +84,7 @@ class RegisterForm(forms.ModelForm):
         self.user_type = user_type
         self.helper = FormHelper()
         self.helper.form_method = 'post'
-
+        self.fields['mandar_email'].help_text = "Selecione pelo menos uma opção. Somente enviamos confirmações de consultas"
         common_fields = [
                 FloatingField('nome', css_class='form-group-sm mb-3'),
                 Field('bio', css_class='form-group-sm mb-3'),
@@ -94,6 +101,9 @@ class RegisterForm(forms.ModelForm):
                 Column(Field('idioma', css_class='form-group-sm col-md-3 mb-3 js-select2')),
                 Column(Field('preco', css_class='form-group-sm col-md-3 mb-3')),
                 Column(Field('profile_picture', css_class='form-group-sm col-md-3 mb-3')),
+            Row(
+                Column(Field('mandar_email', css_class='form-group-sm mb-3'), css_class='col-md-6'),
+                Column(Field('mandar_whats', css_class='form-group-sm mb-3'), css_class='col-md-6'))
             )
         ]
                 
@@ -124,8 +134,8 @@ class SearchForm(forms.Form):
     cidade = forms.ModelChoiceField(queryset=City.objects.none(), required=False, label='Cidade', widget=forms.Select(attrs={'class': 'form-select'}))
     estado = RegionChoiceField(queryset=Region.objects.all().order_by('name'), required=False, label='Estado', widget=forms.Select(attrs={'class': 'form-select'}))
     max_preco = forms.DecimalField(max_digits=20, decimal_places=0, required=False, label='Valor máximo R$', widget=forms.NumberInput(attrs={'class': 'form-control'}))
-    especialidade = forms.ChoiceField(choices= [('', '-----')] + CustomUser.SPECIALIZATION_CHOICES, required=False, label='Linha Teórica', widget=forms.Select(attrs={'class': 'form-select ','data-placeholder': ''}))
-    sexo = forms.ChoiceField(choices=[('', '-----')] + CustomUser.GENDER, required=False, label='Gênero', widget=forms.Select(attrs={'class': 'form-select', 'data-placeholder': ''}))
+    especialidade = forms.ChoiceField(choices= [('', 'Qualquer')] + CustomUser.SPECIALIZATION_CHOICES, required=False, label='Linha Teórica', widget=forms.Select(attrs={'class': 'form-select ','data-placeholder': ''}))
+    sexo = forms.ChoiceField(choices=[('', 'Qualquer')] + CustomUser.GENDER, required=False, label='Gênero', widget=forms.Select(attrs={'class': 'form-select', 'data-placeholder': ''}))
     min_idade = forms.IntegerField(required=False, label="Idade mínima", widget=forms.NumberInput(attrs={'class': 'form-control'}))
     max_idade = forms.IntegerField(required=False, label="Idade máxima", widget=forms.NumberInput(attrs={'class': 'form-control'}))
     idioma = forms.ModelMultipleChoiceField(queryset=Linguas.objects.all(), required=False, label='Idiomas', widget=forms.SelectMultiple(attrs={'class': 'form-select ', 'data-placeholder': ''}))
@@ -192,7 +202,6 @@ class UserModelChoiceField(forms.ModelChoiceField):
     def label_from_instance(self, obj):
         return obj.nome
 class AgendamentoForm(forms.ModelForm):
-   
     terapeuta = UserModelChoiceField(
         queryset=CustomUser.objects.filter(user_type='terapeuta'),
         label='Terapeuta',
@@ -204,13 +213,17 @@ class AgendamentoForm(forms.ModelForm):
         required=False,
         widget=forms.Select(attrs={'class': 'form-select'}))
     horario = forms.DateTimeField(
+        required=True,
         label='Horario',
         input_formats=['%d/%m/%Y %H:%M'],
         widget=widgets.DateTimeInput(attrs={'class': 'form-control', 'type': 'datetime-local'}, format='%d/%m/%Y T%H:%M'))
     
-    duracao = forms.IntegerField(label='Duração', widget=forms.NumberInput(attrs={'class': 'form-control'}))
+    duracao = forms.IntegerField(required=False, label='Duração', widget=forms.NumberInput(attrs={'class': 'form-control'}))
     mensagem = forms.CharField(required=False, label="Mensagem", widget=forms.Textarea)
     nota = forms.CharField(required=False, label="Notas privadas", widget=forms.Textarea)
+    is_recurring = forms.BooleanField(required=False, label='Agendamento recorrente?')
+    num_occurrences = forms.IntegerField(required=False, label='Número de agendamentos')
+   
 
     def __init__(self, *args, target_user=None, user_type, user, **kwargs):
         super(AgendamentoForm, self).__init__(*args, **kwargs)
@@ -222,13 +235,14 @@ class AgendamentoForm(forms.ModelForm):
             self.fields['paciente'].required = True
             self.helper.layout = Layout(
             Row(
-                Column(FloatingField('paciente', css_class='form-group col-md-8 mb-3')),
-                Column(FloatingField('horario', css_class='form-group-sm col-md-2 mb-3')),
+                Column(FloatingField('paciente', css_class='form-group col-md-6 mb-3')),
+                Column(FloatingField('horario', css_class='form-group-sm col-md-3 mb-3')),
                 Column(FloatingField('duracao', css_class='form-group-sm col-md-1 mb-3'))),
             Row(
                 Column(FloatingField('mensagem', css_class='form-group-sm col-md-4 mb-3')),
-                Column(FloatingField('nota', css_class='form-group-sm col-md-4 mb-3'))))
-        elif user_type == 'paciente':
+                Column(FloatingField('nota', css_class='form-group-sm col-md-4 mb-3')),
+                Column(FloatingField('num_occurrences', css_class='form-group-sm col-md-1 mb-3'))))
+        else:
             self.fields['paciente'].initial = self.user
             self.fields['terapeuta'].initial = target_user
             self.fields['terapeuta'].required = True
@@ -238,7 +252,7 @@ class AgendamentoForm(forms.ModelForm):
                 Column(FloatingField('terapeuta', css_class='form-group col-md-8 mb-3')),
                 Column(FloatingField('horario', css_class='form-group-sm col-md-2 mb-3'))),
             Row(
-                Column(FloatingField('mensagem', css_class='form-group-sm col-md-4 mb-3'))))
+                Column(FloatingField('mensagem', css_class='form-group-sm col-md-12 mb-3'))))
         self.helper.form_method = 'post'
         self.helper.add_input(Submit('submit', 'Enviar', css_class='btn-primary'))
 
@@ -256,15 +270,28 @@ class CustomUserUpdateForm(UserChangeForm):
     publico = ModelMultipleChoiceField(queryset=PublicoAlvo.objects.all(), label='Público Alvo', required=False, widget=forms.SelectMultiple(attrs={'class': 'form-select'}))
     formacao = forms.CharField(max_length=100, required=False, label='Formação Acadêmica', widget=forms.TextInput(attrs={'class': 'form-control'}))
     limite_eventos = forms.IntegerField(required=False, label='Limite mensal de agendamentos')
+    mandar_email = forms.BooleanField(required=False, label = "Permissão para que enviemos emails")
+    mandar_whats = forms.BooleanField(required=False, label = "Permissão para que enviemos mensagens de WhatsApp")
 
     class Meta:
         model = CustomUser
         fields = ('telefone', 'email',  'estado', 'cidade', 'limite_eventos',  'bio', 'idiomas', 'especialidade', 'publico', 'preco', 'profile_picture')
 
+    def clean(self):
+        cleaned_data = super().clean()
+        mandar_email = cleaned_data.get('mandar_email')
+        mandar_whats = cleaned_data.get('mandar_whats')
+
+        if not (mandar_email or mandar_whats):
+            raise ValidationError("É necessário selecionar pelo menos uma opção de contato (email ou WhatsApp)")
+
+        return cleaned_data
+    
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         instance = kwargs.get('instance')
         self.helper = FormHelper()
+        self.fields['mandar_email'].help_text = "Selecione pelo menos uma opção. Somente enviamos confirmações de consultas"
         self.helper.form_method = 'post'
         self.fields['estado'].inital = instance.estado
         self.helper.add_input(Submit('submit', 'Enviar', css_class='btn-primary'))

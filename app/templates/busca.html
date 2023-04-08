@@ -32,7 +32,7 @@
           <td>{{ user.sexo }}</td>
           <td>{{ user.idade }}</td>
           <td>{% for idioma in user.idioma.all %}{{ idioma }}
-            {% if not forloop.last %}, {% endif %}{% endfor %}</td>
+            {% if not forloop.last%}, {% endif %}{% endfor %}</td>
           <td>{{ user.estado }}</td>
           <td>{{ user.cidade }}</td>
           {% if user_type == 'paciente' %}

@@ -23,7 +23,8 @@ urlpatterns = [
     path('atualizar_notas/<int:agendamento_id>/', atualizar_notas, name='atualizar_notas'),
     path('cancelar_agendamento/<int:agendamento_id>/', cancelar_evento, name='cancelar_evento'),
     path('editar_perfil/', editar_perfil, name='editar_perfil'),
-    path('mudar_senha/', custom_password_change, name='mudar_senha')
+    path('mudar_senha/', custom_password_change, name='mudar_senha'),
+    path('eventos_json/', eventos_json, name='eventos_json'),
     ]
 
 

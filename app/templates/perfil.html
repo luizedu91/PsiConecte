@@ -25,7 +25,7 @@
 
                 </div>
                 <div class="col-md-6">
-                    <p><strong>Localização:</strong> {{ user.cidade }}</p>
+                    <p><strong>Localização:</strong> {{ user.cidade }}, {{user.estado}}</p>
                     <p><strong>Gênero:</strong> {{ user.sexo }}</p>
                     <p><strong>Idiomas:</strong> {% for idioma in user.idioma.all %}
                         {{ idioma }}{% if not forloop.last %}, {% endif %}{% endfor %}</p>

@@ -1,0 +1,20 @@
+{% autoescape off %}
+<!DOCTYPE html>
+
+<htmllang="en">
+<head>
+<metacharset="UTF-8"/>
+<metaname="viewport"content="width=device-width, initial-scale=1.0"/>
+</head>
+<body>
+
+    <p>Olá,</p>
+    <p>sua consulta com </p>
+    <p>{{ self }}<br>
+    em {{ agendamento.horario }}<br>
+    <p>foi cancelada</p>
+
+
+</body>
+</html>
+{% endautoescape %}

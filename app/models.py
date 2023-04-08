@@ -50,6 +50,8 @@ class CustomUser(AbstractUser):
     telefone = models.CharField(max_length=30, blank=True, null=True)
     uuid =  models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     email = models.CharField(max_length=50, blank=True, null=True)
+    mandar_email = models.BooleanField(blank=True, null = True)
+    mandar_whats = models.BooleanField(blank=True, null = True)
     estado = models.CharField(max_length=50, blank=True, null=True)
     cidade = models.CharField(max_length=50, blank=True, null=True)
     bio = models.TextField(blank=True, null=True)
@@ -95,6 +97,7 @@ class Evento(models.Model):
     duracao = models.DecimalField(default=0, max_digits=3, decimal_places=0, verbose_name='Duração (min)')
     notas = models.TextField()
     confirmation_token = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    num_occurrences = models.PositiveIntegerField(null=True, blank=True)
 
     class Meta:
         permissions = [
@@ -108,3 +111,4 @@ class PendingAgendamento(models.Model):
     horario = models.DateTimeField(blank=True, null=True)
     duracao = models.DecimalField(default=0, max_digits=3, decimal_places=0, verbose_name='Duração (min)')
     notas = models.TextField(blank=True, null=True)
+    num_occurrences = models.PositiveIntegerField(null=True, blank=True)

@@ -2,6 +2,8 @@ from django.utils import timezone
 from django.urls import reverse
 from django.utils.timezone import now
 import json
+from heyoo import WhatsApp
+import requests
 from django.views.decorators.http import require_POST
 from django.core.mail import EmailMultiAlternatives
 from django.template.loader import render_to_string
@@ -15,6 +17,7 @@ from datetime import date, timedelta, datetime
 from django.db.models import F, ExpressionWrapper, fields
 from django.db.models.functions import ExtractYear
 from django.http import JsonResponse, HttpResponseForbidden, HttpResponseRedirect
+from twilio.rest import Client
 from .models import *
 from .forms import *
 from .utils import *
@@ -53,7 +56,7 @@ def home(request):
 
     context = {
             'user_type':user_type,
-            'agendamentos': agendamentos,
+            'agendamento': agendamentos,
         }
     return render(request, 'home.html', context)
 
@@ -65,7 +68,7 @@ def buscar(request):
     if user_type == 'terapeuta':
         target = CustomUser.objects.filter(user_type='paciente')
         form = SearchForm(request.GET, user=request.user, user_type=user_type)
-        columns = ['Nome', 'Gênero', 'Idade', 'Idiomas', 'Estado', 'Cidade', 'Preço']
+        columns = ['Nome', 'Gênero', 'Idade', 'Idiomas', 'Estado', 'Cidade', 'Valor à disposição']
     else:
         columns = ['Nome', 'Gênero', 'Idade', 'Idiomas', 'Estado', 'Cidade', 'Linha Teórica', 'Público Alvo', 'Formação Acadêmica', 'Preço']
         target = CustomUser.objects.filter(user_type='terapeuta')
@@ -135,7 +138,7 @@ def buscar(request):
             sort_by = 'publico'
         if sort_by == 'Formação Acadêmica':
             sort_by = 'formacao'
-        if sort_by == 'Preço':
+        if sort_by == 'Preço' or sort_by=='Valor à disposição':
             sort_by = 'preco'
 
         if sort_by and order:
@@ -171,30 +174,42 @@ def agendamento(request, uuid=None):
             agendamento = form.save(commit=False)
            
             if user_type=='terapeuta':
-                terapeuta = user
-                paciente = form.cleaned_data['paciente']
                 agendamento.terapeuta = user
                 recipient_email = agendamento.paciente.email
+                recipient_phone = agendamento.paciente.telefone
             else:
-                terapeuta = form.cleaned_data['terapeuta']
-                paciente = user
                 agendamento.paciente = user
                 recipient_email = agendamento.terapeuta.email
+                recipient_phone = agendamento.terapeuta.telefone
     
             pending_agendamento = PendingAgendamento(
-            terapeuta=terapeuta,
-            paciente=paciente,
-            horario=form.cleaned_data['horario'],
-            notas=form.cleaned_data['nota'])
-
+                terapeuta=agendamento.terapeuta,
+                paciente=agendamento.paciente,
+                horario=agendamento.horario,
+                notas=agendamento.notas,
+                num_occurrences = form.cleaned_data['num_occurrences'])
             pending_agendamento.save()
+
             confirmation_token = str(pending_agendamento.confirmation_token)
 
-            html_content = render_to_string('pedido_agendamento.html', {'agendamento': agendamento, 'confirmation_token': confirmation_token, 'mensagem':form.cleaned_data['mensagem']})
+            if user.mandar_email:
+                if user_type=='terapeuta':
+                    html_content = render_to_string('pedido_agendamento_terapeuta.html', {'agendamento': agendamento, 'confirmation_token': confirmation_token, 'mensagem':form.cleaned_data['mensagem']})
+                else:
+                    html_content = render_to_string('pedido_agendamento_paciente.html', {'agendamento': agendamento, 'confirmation_token': confirmation_token, 'mensagem':form.cleaned_data['mensagem']})
+            
+            if user.mandar_whats:
+                if user_type=='terapeuta':
+                    whats_content = render_to_string('pedido_agendamento_terapeuta_whats.html', {'agendamento': agendamento, 'confirmation_token': confirmation_token, 'mensagem':form.cleaned_data['mensagem']})
+                else:
+                    whats_content = render_to_string('pedido_agendamento_terapeuta_whats.html', {'agendamento': agendamento, 'confirmation_token': confirmation_token, 'mensagem':form.cleaned_data['mensagem']})
+         
             text_content = strip_tags(html_content)
-            msg = EmailMultiAlternatives('Pedido de Agendamento', text_content, 'luizedu.andrade@gmail.com', [recipient_email])
-            msg.attach_alternative(html_content, "text/html")
+            msg = EmailMultiAlternatives('Pedido de Agendamento', text_content, 'psicosocialbr@yahoo.com', [recipient_email])
+            msg.attach_alternative(whats_content, "text/html")
             msg.send()
+            
+            send_whatsapp_message(recipient_phone, text_content)
 
             messages.success(request, "Email enviado")
             return redirect('home')
@@ -251,6 +266,8 @@ def register_2(request):
             user.cidade = form.cleaned_data.get('cidade').name
             user.preco = form.cleaned_data.get('preco')
             user.sexo = form.cleaned_data.get('sexo')
+            user.mandar_email = form.cleaned_data.get('mandar_email')
+            user.mandar_whats = form.cleaned_data.get('mandar_whats')
             user.save()
             if user_type == 'terapeuta':
                 user.especialidade = form.cleaned_data.get('especialidade')
@@ -260,7 +277,8 @@ def register_2(request):
                 user.publico.set(publico)
             idioma = form.cleaned_data.get('idioma')
             user.idioma.set(idioma)
-            authenticate(username,password1)
+            user = authenticate(username=username, password=password1)
+            login(request, user)
             return redirect('/home')
     else:
         form = RegisterForm(user_type=user_type)
@@ -273,13 +291,15 @@ def get_cities(request, region_id):
 
 def confirmado(request, confirmation_token):
     pending_agendamento = get_object_or_404(PendingAgendamento, confirmation_token=confirmation_token)
-    
-    agendamento = Evento(
-        terapeuta=pending_agendamento.terapeuta,
-        paciente=pending_agendamento.paciente,
-        horario=pending_agendamento.horario,
-        notas=pending_agendamento.notas)
-    agendamento.save()
+    num_occurrences = pending_agendamento.num_occurrences
+   
+    for i in range(num_occurrences):
+        pending_agendamento = Evento(
+            terapeuta=pending_agendamento.terapeuta,
+            paciente=pending_agendamento.paciente,
+            horario=pending_agendamento.horario + timedelta(weeks=i),
+            notas=pending_agendamento.notas)
+        agendamento.save()
     pending_agendamento.delete()
 
     messages.success(request, "Agendamento confirmado")
@@ -306,15 +326,29 @@ def atualizar_notas(request, agendamento_id):
     agendamento.notas = new_notes
     agendamento.save()
 
+    print("atualizar notas", request, agendamento_id)
+
     return JsonResponse({"success": True, "notas": new_notes})
 
 @login_required(login_url='login')
 def cancelar_evento(request, agendamento_id):
+    user = request.user
     evento = get_object_or_404(Evento, pk=agendamento_id)
     if request.user.has_perm('app.delete_event') == False and (str(evento.terapeuta) != str(request.user.nome) or str(evento.paciente) != str(request.user.nome)):
         return HttpResponseForbidden()
-    evento.delete()
-    return redirect('home')
+    else:
+        html_content = render_to_string('cancelamento.html', {'agendamento': evento, 'self': user.nome})
+        if user.user_type=="terapeuta":
+            recipient_email = evento.paciente.email
+        else:
+            recipient_email = evento.terapeuta.email
+        text_content = strip_tags(html_content)
+        msg = EmailMultiAlternatives('Agendamento cancelado', text_content, 'psicosocialbr@yahoo.com', [recipient_email])
+        msg.attach_alternative(html_content, "text/html")
+        msg.send()
+        evento.delete()
+        messages.success(request, "Agendamento cancelado")
+        return redirect('home')
 
 @login_required(login_url='login')
 def editar_perfil(request):
@@ -350,15 +384,48 @@ def custom_password_change(request):
 
     return render(request, 'mudar_senha.html', {'form': form})
 
+def eventos_json(request):
+    event_list = []
+    user = request.user
+    if user.user_type=='terapeuta':
+        agendamentos = Evento.objects.filter(terapeuta_id=user.uuid)
+        for i in agendamentos:
+            dt = i.horario
+            event_list.append({
+                'user_type': user.user_type,
+                 'title': i.paciente.nome, 
+                 'target': {
+                    'uuid': str(i.paciente.uuid),
+                    'nome': i.paciente.nome,
+                    'telefone': i.paciente.telefone,
+                },
+                'allDay': False, 
+                'event_id':i.id,
+                'start': dt.strftime('%Y-%m-%d'),
+                'time': dt.strftime('%H:%M'),
+                'notas': str(i.notas)
+            })
+    else:   
+        agendamentos = Evento.objects.filter(paciente_id=user.uuid)
+        for i in agendamentos:
+            dt = i.horario
+            event_list.append({
+                'event_id':i.id,
+                'user_type': user.user_type,
+                'title': i.terapeuta.nome,
+                'target': {
+                    'uuid': str(i.terapeuta.uuid),
+                    'nome': i.terapeuta.nome,
+                    'telefone': i.terapeuta.telefone,
+                },
+                'allDay': False, 
+                'start': dt.strftime('%Y-%m-%d'),
+                'time': dt.strftime('%H:%M:%S'), 
+            })
+            
+    return JsonResponse(event_list, safe=False)
 
+def send_whatsapp_message(recipient_phone_number, message_body):
 
-''' for debugging
-for attr in dir(user):
-    if not attr.startswith('_'):
-        try:
-            value = getattr(user, attr)
-            if not isinstance(value, (models.Manager, property)):
-                print(f"{attr}: {value}")
-        except AttributeError:
-            pass'''
-
+    messenger = WhatsApp('EAADg345gtEkBADoS12Q7d9f0MUNkZCXjYLmKfL5e5yrOLSm9IDvqz6krOYW7zDVgkF4O5dNMCOfIflrAboxOwoyYQ9ncT6rXr91ptkvvZAiHQqtvnHI2kgyoQF5Dwm3BTmDpJwunmq5CgIvsdIRfqeUziZARLruu0rGbhZByey7gUyXC3xhxlwWZAyczLBO9EUw0bWtMS5GpVJhSVRcWWpkMYZB0FvZCCWj06mOdSC4ywZDZD',  phone_number_id='114845358238519')
+    messenger.send_message(message_body, "+55"+recipient_phone_number)
