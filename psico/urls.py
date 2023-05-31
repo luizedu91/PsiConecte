@@ -25,6 +25,8 @@ urlpatterns = [
     path('editar_perfil/', editar_perfil, name='editar_perfil'),
     path('mudar_senha/', custom_password_change, name='mudar_senha'),
     path('eventos_json/', eventos_json, name='eventos_json'),
+     path('available_terapeutas/', available_terapeutas, name='available_terapeutas'),
+
     ]
 
 

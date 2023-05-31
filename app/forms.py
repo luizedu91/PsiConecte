@@ -3,7 +3,7 @@ from .models import *
 from .utils import *
 from django.forms import widgets
 from django.utils.translation import gettext_lazy as _
-from django.contrib.auth.forms import UserCreationForm, UserChangeForm, AuthenticationForm, PasswordChangeForm
+from django.contrib.auth.forms import UserChangeForm, AuthenticationForm, PasswordChangeForm
 from crispy_forms.layout import Layout, Submit, Button, Row, Column
 from crispy_bootstrap5.bootstrap5 import FloatingField, Field
 from django.core.validators import MinValueValidator,MaxValueValidator
@@ -14,12 +14,16 @@ class RegionChoiceField(forms.ModelChoiceField):
     def label_from_instance(self, obj):
         return obj.name
 
+#First registration page
 class UserTypeForm(forms.Form):
+    #Fields
     user_type = forms.ChoiceField(choices=[('terapeuta', 'Terapeuta'), ('paciente', 'Paciente')], widget=forms.RadioSelect, required=True)
     username = forms.CharField(max_length=100, required=True, widget=forms.TextInput(attrs={'class': 'form-control'}))
     password1 = forms.CharField(required=True, widget=forms.PasswordInput(attrs={'class': 'form-control'}))
     password2 = forms.CharField(required=True, widget=forms.PasswordInput(attrs={'class': 'form-control'}))
     email = forms.EmailField(required=True, widget=forms.EmailInput(attrs={'class': 'form-control'}))
+    
+    #Defining layout and texts
     def __init__(self, *args, **kwargs):
         super(UserTypeForm, self).__init__(*args, **kwargs)
         self.helper = FormHelper()
@@ -58,7 +62,7 @@ class RegisterForm(forms.ModelForm):
     idioma = ModelMultipleChoiceField(queryset=Linguas.objects.all(), label='Idioma de preferência', required=False, widget=forms.SelectMultiple(attrs={'class': 'form-select'}))
     profile_picture = forms.ImageField(required=False, label="Foto do perfil", widget=forms.ClearableFileInput(attrs={'class': 'form-control'}))
     especialidade = forms.ChoiceField(choices=CustomUser.SPECIALIZATION_CHOICES, required=False, label='Linha Teórica', widget=forms.Select(attrs={'class': 'form-select'}))
-    publico = ModelMultipleChoiceField(queryset=PublicoAlvo.objects.all(), required=False, widget=forms.SelectMultiple(attrs={'class': 'form-select'}))
+    publico = ModelMultipleChoiceField(queryset=PublicoAlvo.objects.all(), label="Público Alvo", required=False, widget=forms.SelectMultiple(attrs={'class': 'form-select'}))
     formacao = forms.CharField(max_length=100, required=False, label='Formação Acadêmica', widget=forms.TextInput(attrs={'class': 'form-control'}))
     limite_eventos = forms.IntegerField(required=False, label='Limite mensal de agendamentos')
     mandar_email = forms.BooleanField(required=False, label = "Permissão para que enviemos emails")
@@ -84,7 +88,7 @@ class RegisterForm(forms.ModelForm):
         self.user_type = user_type
         self.helper = FormHelper()
         self.helper.form_method = 'post'
-        self.fields['mandar_email'].help_text = "Selecione pelo menos uma opção. Somente enviamos confirmações de consultas"
+        self.fields['mandar_email'].help_text = "Selecione pelo menos uma opção. Enviamos somente confirmações de consultas"
         common_fields = [
                 FloatingField('nome', css_class='form-group-sm mb-3'),
                 Field('bio', css_class='form-group-sm mb-3'),
@@ -115,6 +119,7 @@ class RegisterForm(forms.ModelForm):
         Column(Field('limite_eventos', css_class='form-group-sm mb-3'), css_class='col-md-3'),
     ),]
 
+        #Show different fields and texts according to user_type
         if user_type == 'terapeuta':
             layout_fields = common_fields + terapeuta_fields
             self.fields['preco'].label = 'Preço de sua consulta. Valor entre R$ 5 e R$70'
@@ -215,20 +220,21 @@ class AgendamentoForm(forms.ModelForm):
     horario = forms.DateTimeField(
         required=True,
         label='Horario',
-        input_formats=['%d/%m/%Y %H:%M'],
-        widget=widgets.DateTimeInput(attrs={'class': 'form-control', 'type': 'datetime-local'}, format='%d/%m/%Y T%H:%M'))
+        widget=widgets.DateTimeInput(attrs={'class': 'form-control', 'type': 'datetime-local'}))
     
     duracao = forms.IntegerField(required=False, label='Duração', widget=forms.NumberInput(attrs={'class': 'form-control'}))
     mensagem = forms.CharField(required=False, label="Mensagem", widget=forms.Textarea)
     nota = forms.CharField(required=False, label="Notas privadas", widget=forms.Textarea)
     is_recurring = forms.BooleanField(required=False, label='Agendamento recorrente?')
-    num_occurrences = forms.IntegerField(required=False, label='Número de agendamentos')
+    num_occurrences = forms.IntegerField(required=False, label='Número de agendamentos', initial='1')
    
 
     def __init__(self, *args, target_user=None, user_type, user, **kwargs):
         super(AgendamentoForm, self).__init__(*args, **kwargs)
         self.user = user
-        self.helper = FormHelper()
+        self.helper = FormHelper()        
+        self.fields['terapeuta'].widget.attrs.update({'id': 'terapeuta-field'})
+        self.fields['horario'].widget.attrs.update({'id': 'horario-field'})
         if user_type == 'terapeuta':
             self.fields['terapeuta'].initial = self.user
             self.fields['paciente'].initial = target_user

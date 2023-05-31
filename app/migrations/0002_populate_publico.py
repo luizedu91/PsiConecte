@@ -1,6 +1,6 @@
 from django.db import migrations
 
-PUBLIC_ALVO = ['Crianças','Adolescentes','Adultos','Idosos','Terapia de casal','Famílias','Libras']
+PUBLIC_ALVO = ['Crianças','Adolescentes','Adultos','Idosos','Terapia de casal','Famílias','Libras', 'Ansiedade', 'Depressão', 'Alterações de humor', 'Acompanhamento psicológico', 'Estresse']
 
 def create_publico_alvo(apps, schema_editor):
     PublicoAlvo = apps.get_model('app', 'PublicoAlvo')

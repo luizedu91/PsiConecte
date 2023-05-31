@@ -2,8 +2,8 @@ from django.utils import timezone
 from django.urls import reverse
 from django.utils.timezone import now
 import json
-from heyoo import WhatsApp
-import requests
+#from pagseguro import PagSeguro
+from django.conf import settings
 from django.views.decorators.http import require_POST
 from django.core.mail import EmailMultiAlternatives
 from django.template.loader import render_to_string
@@ -11,17 +11,18 @@ from django.utils.html import strip_tags
 from django.template.loader import render_to_string
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required 
+from django.views.decorators.csrf import csrf_exempt, csrf_protect
 from django.contrib.auth import login, logout, authenticate, update_session_auth_hash
 from django.contrib import messages
 from datetime import date, timedelta, datetime
-from django.db.models import F, ExpressionWrapper, fields
+from django.db.models import ExpressionWrapper, fields
 from django.db.models.functions import ExtractYear
 from django.http import JsonResponse, HttpResponseForbidden, HttpResponseRedirect
-from twilio.rest import Client
 from .models import *
 from .forms import *
 from .utils import *
 
+@csrf_protect
 def login_view(request):
     if request.user.is_authenticated:
         return redirect('/')
@@ -35,7 +36,7 @@ def login_view(request):
             else:
                 return redirect('/')
         else:
-            return render(request, 'login.html', {'form': form, 'error_message': 'Invalid login credentials'})
+            messages.error(request, 'Credenciais inválidas')
     else:  
         form = LoginForm()
         return render(request, 'login.html', {'form': form})
@@ -46,18 +47,22 @@ def logout_view(request):
 
 @login_required(login_url='login')
 def home(request):
+    # Get the current user making the request
     user = request.user
-    user_type = 'terapeuta' if user.is_terapeuta else 'paciente'
-    if user_type == 'terapeuta':
-        agendamentos = Evento.objects.filter(terapeuta_id=user.uuid, horario__gte=timezone.now()).values('id', 'terapeuta__nome', 'paciente__nome', 'horario', 'paciente__telefone', 'duracao', 'notas', 'terapeuta__preco', 'paciente__uuid')
 
+    if user.user_type == 'terapeuta':
+         # Retrieve appointments with future dates
+        agendamentos = Evento.objects.filter(terapeuta_id=user.uuid, horario__gte=timezone.now()).values('id', 'terapeuta__nome', 'paciente__nome', 'horario', 'paciente__telefone', 'duracao', 'notas', 'terapeuta__preco', 'paciente__uuid')
     else:
         agendamentos = Evento.objects.filter(paciente_id=user.uuid, horario__gte=timezone.now()).values('id', 'paciente__nome', 'terapeuta__nome', 'horario', 'terapeuta__telefone', 'duracao', 'notas', 'paciente__preco', 'terapeuta__uuid')
-
+    
+    # Create the context to be passed to the template
     context = {
-            'user_type':user_type,
+            'user_type':user.user_type,
             'agendamento': agendamentos,
         }
+    
+    # Render the home.html template with the provided context
     return render(request, 'home.html', context)
 
 @login_required(login_url='login')
@@ -65,6 +70,7 @@ def buscar(request):
     user = request.user
     user_type = user.user_type
 
+     # Filter by user type and set form and columns accordingly
     if user_type == 'terapeuta':
         target = CustomUser.objects.filter(user_type='paciente')
         form = SearchForm(request.GET, user=request.user, user_type=user_type)
@@ -73,7 +79,8 @@ def buscar(request):
         columns = ['Nome', 'Gênero', 'Idade', 'Idiomas', 'Estado', 'Cidade', 'Linha Teórica', 'Público Alvo', 'Formação Acadêmica', 'Preço']
         target = CustomUser.objects.filter(user_type='terapeuta')
         form = SearchForm(request.GET, user=request.user, user_type=user_type)
-
+    
+    # Validate form and apply filters
     if form.is_valid():
         cidade = form.cleaned_data.get('cidade')
         estado = form.cleaned_data.get('estado')
@@ -86,7 +93,8 @@ def buscar(request):
         min_idade = form.cleaned_data.get('min_idade')
         max_idade = form.cleaned_data.get('max_idade')
         current_year = date.today().year
-
+        
+        # Apply filters to target based on form data
         if cidade:
             target = target.filter(cidade__icontains=cidade.name)
         elif estado:
@@ -106,6 +114,8 @@ def buscar(request):
         if min_idade:
             target = target.annotate(birth_year=ExtractYear('nascimento'))
             target = target.filter(nascimento__lte=now() - timedelta(days=min_idade*365.25))
+        
+        # Calculate age and annotate it to target
         if max_idade:
             target = target.annotate(max_idade=ExpressionWrapper(
                     current_year - max_idade - ExtractYear('nascimento'),
@@ -115,11 +125,10 @@ def buscar(request):
         target = target.annotate(idade=ExpressionWrapper(
                 current_year - ExtractYear('nascimento'),
                 output_field=fields.IntegerField()))
-
+        
+        # Handle sorting
         sort_by = request.GET.get('sort_by', '')
         order = request.GET.get('order', '')
-
-#Fix sorting of fields
         if sort_by == 'Nome':
             sort_by = 'nome'
         if sort_by == 'Gênero':
@@ -147,6 +156,7 @@ def buscar(request):
             elif order == 'desc':
                 target = target.order_by('-' + sort_by)
 
+    # Prepare context and render the template
     states = Region.objects.order_by('name')
     context = {
         'regions': states,
@@ -172,16 +182,24 @@ def agendamento(request, uuid=None):
         form = AgendamentoForm(request.POST, user_type=user_type, user=request.user, target_user = target_user)
         if form.is_valid():
             agendamento = form.save(commit=False)
-           
+            
+            # Set patient and therapist and retrieve email and phone for notifications
             if user_type=='terapeuta':
                 agendamento.terapeuta = user
                 recipient_email = agendamento.paciente.email
                 recipient_phone = agendamento.paciente.telefone
             else:
-                agendamento.paciente = user
-                recipient_email = agendamento.terapeuta.email
-                recipient_phone = agendamento.terapeuta.telefone
-    
+                # Checks if therapist has reached their limit to the target month
+                terapeuta = CustomUser.objects.get(username=agendamento.terapeuta)
+                if n_eventos_mes(agendamento.horario, terapeuta) >= terapeuta.limite_eventos:
+                    messages.error(request, "Terapeuta atingiu seu limite mensal de agendamentos")
+                    return redirect('agendamento')
+                else:    
+                    agendamento.paciente = user
+                    recipient_email = agendamento.terapeuta.email
+                    recipient_phone = agendamento.terapeuta.telefone
+            
+            # Create pending agendamento and save it
             pending_agendamento = PendingAgendamento(
                 terapeuta=agendamento.terapeuta,
                 paciente=agendamento.paciente,
@@ -191,29 +209,30 @@ def agendamento(request, uuid=None):
             pending_agendamento.save()
 
             confirmation_token = str(pending_agendamento.confirmation_token)
-
+            
+            # Generate email and WhatsApp message content
             if user.mandar_email:
                 if user_type=='terapeuta':
                     html_content = render_to_string('pedido_agendamento_terapeuta.html', {'agendamento': agendamento, 'confirmation_token': confirmation_token, 'mensagem':form.cleaned_data['mensagem']})
                 else:
                     html_content = render_to_string('pedido_agendamento_paciente.html', {'agendamento': agendamento, 'confirmation_token': confirmation_token, 'mensagem':form.cleaned_data['mensagem']})
             
-            if user.mandar_whats:
+            '''if user.mandar_whats:
                 if user_type=='terapeuta':
                     whats_content = render_to_string('pedido_agendamento_terapeuta_whats.html', {'agendamento': agendamento, 'confirmation_token': confirmation_token, 'mensagem':form.cleaned_data['mensagem']})
                 else:
-                    whats_content = render_to_string('pedido_agendamento_terapeuta_whats.html', {'agendamento': agendamento, 'confirmation_token': confirmation_token, 'mensagem':form.cleaned_data['mensagem']})
-         
+                    whats_content = render_to_string('pedido_agendamento_terapeuta_whats.html', {'agendamento': agendamento, 'confirmation_token': confirmation_token, 'mensagem':form.cleaned_data['mensagem']})'''
+        
             text_content = strip_tags(html_content)
             msg = EmailMultiAlternatives('Pedido de Agendamento', text_content, 'psicosocialbr@yahoo.com', [recipient_email])
-            msg.attach_alternative(whats_content, "text/html")
-            msg.send()
-            
-            send_whatsapp_message(recipient_phone, text_content)
+            msg.attach_alternative(text_content, "text/html")
+            #msg.send()
+            #send_whatsapp_message(recipient_phone, text_content)
 
             messages.success(request, "Email enviado")
             return redirect('home')
     else:
+        # Initialize form and set queryset for user type
         form = AgendamentoForm(user=request.user, user_type=user_type, target_user=target_user)
         if user_type=='terapeuta':
             form.fields['terapeuta'].queryset = CustomUser.objects.filter(username=user)
@@ -225,6 +244,7 @@ def agendamento(request, uuid=None):
     return render(request, 'agendamento.html', {'form': form})
 
 def register_1(request):
+    #First part of the registration procedure
     if request.method == "POST":
         form = UserTypeForm(request.POST)
         if form.is_valid():
@@ -286,10 +306,12 @@ def register_2(request):
     return render(request, 'register_2.html', {'form': form, 'regions': Region.objects.order_by('name')})
 
 def get_cities(request, region_id):
+    #used to populate the cities field after selecting a state
     cities = list(City.objects.filter(region_id=region_id).values())
     return JsonResponse(cities, safe=False)
 
 def confirmado(request, confirmation_token):
+    # Creates an appointment after the confirmation email is cliked. 
     pending_agendamento = get_object_or_404(PendingAgendamento, confirmation_token=confirmation_token)
     num_occurrences = pending_agendamento.num_occurrences
    
@@ -299,7 +321,8 @@ def confirmado(request, confirmation_token):
             paciente=pending_agendamento.paciente,
             horario=pending_agendamento.horario + timedelta(weeks=i),
             notas=pending_agendamento.notas)
-        agendamento.save()
+        pending_agendamento.save()
+        CustomUser.objects.filter(uuid=pending_agendamento.terapeuta).n_eventos += 1
     pending_agendamento.delete()
 
     messages.success(request, "Agendamento confirmado")
@@ -307,6 +330,7 @@ def confirmado(request, confirmation_token):
 
 @login_required(login_url='login')
 def perfil(request, user_uuid):
+    # Shows profile page
     user = get_object_or_404(CustomUser, uuid=user_uuid)
     context = {
         'user': user,
@@ -425,7 +449,47 @@ def eventos_json(request):
             
     return JsonResponse(event_list, safe=False)
 
-def send_whatsapp_message(recipient_phone_number, message_body):
+'''def send_whatsapp_message(recipient_phone_number, message_body):
 
     messenger = WhatsApp('EAADg345gtEkBADoS12Q7d9f0MUNkZCXjYLmKfL5e5yrOLSm9IDvqz6krOYW7zDVgkF4O5dNMCOfIflrAboxOwoyYQ9ncT6rXr91ptkvvZAiHQqtvnHI2kgyoQF5Dwm3BTmDpJwunmq5CgIvsdIRfqeUziZARLruu0rGbhZByey7gUyXC3xhxlwWZAyczLBO9EUw0bWtMS5GpVJhSVRcWWpkMYZB0FvZCCWj06mOdSC4ywZDZD',  phone_number_id='114845358238519')
-    messenger.send_message(message_body, "+55"+recipient_phone_number)
+    messenger.send_message(message_body, "+55"+recipient_phone_number)'''
+
+@csrf_exempt 
+def available_terapeutas(request):
+    selected_date = datetime.strptime(request.GET.get('selected_date', '').split("T")[0],'%Y-%m-%d')
+    terapeutas = CustomUser.objects.filter(user_type='terapeuta')
+    available_terapeutas = []
+    for terapeuta in terapeutas:
+        if n_eventos_mes(selected_date, terapeuta) < terapeuta.limite_eventos:
+            available_terapeutas.append(terapeuta)
+    terapeutas_data = [{'uuid': str(terapeuta.uuid), 'nome': terapeuta.nome} for terapeuta in available_terapeutas]
+    return JsonResponse(terapeutas_data, safe=False)
+
+'''def create_checkout(request):
+    if request.method == "POST":
+        try:
+            pag = PagSeguro(
+                email=settings.PAGSEGURO_EMAIL,
+                token=settings.PAGSEGURO_TOKEN,
+                config={'sandbox': settings.PAGSEGURO_SANDBOX}
+            )
+
+            pag.items.append({
+                'id': '1',
+                'description': 'Appointment Booking',
+                'amount': '10.00',  # Set the appointment price here
+                'quantity': '1'
+            })
+
+            pag.redirect_url = 'your_success_url'  # Set your success URL
+            pag.notification_url = 'your_notification_url'  # Set your notification URL for receiving status updates
+
+            response = pag.checkout()
+
+            if response.status == 200:
+                return JsonResponse({'redirect_url': response.payment_url})
+            else:
+                return JsonResponse({'error': 'PagSeguro checkout error'})
+        except Exception as e:
+            return JsonResponse({'error': str(e)})
+    return JsonResponse({'error': 'Invalid request method'})'''

@@ -4,12 +4,12 @@ import uuid
 from cities_light.receivers import connect_default_signals
 from cities_light.abstract_models import (AbstractCountry, AbstractRegion, AbstractCity, AbstractSubRegion) 
 
+#Classes for multiple choice fields. Populated from the second migration file.
 class PublicoAlvo(models.Model):
     publico = models.CharField(max_length=50, unique=True)
 
     def __str__(self):
-        return self.publico
-    
+        return self.publico  
 class Linguas(models.Model):
     linguas = models.CharField(max_length=50, unique=True)
 
@@ -63,20 +63,15 @@ class CustomUser(AbstractUser):
     especialidade = models.CharField(max_length=100, choices=SPECIALIZATION_CHOICES, blank=True, null=True)
     publico = models.ManyToManyField(PublicoAlvo, blank=True)
     formacao = models.CharField(max_length=100, blank=True, null=True)
-    limite_eventos = models.PositiveIntegerField(null=True, blank=True)
+    limite_eventos = models.PositiveIntegerField(null=True, blank=True, default=10)
 
-    def is_terapeuta(self):
-        return self.user_type == 'terapeuta'
-
-    def is_paciente(self):
-        return self.user_type == 'paciente'
-    
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs) 
         if self.pk:
             permission = Permission.objects.get(codename='delete_event', content_type__model=Evento._meta.model_name)
             self.user_permissions.add(permission)
 
+#Necessary to make cities_light work.
 class Country(AbstractCountry):
     pass
 connect_default_signals(Country)   
@@ -104,6 +99,7 @@ class Evento(models.Model):
             ("delete_event", ("Pode deletar agendamentos")),
         ]
 
+#When an appointment is requested and a confirmation email is sent, its data is saved here. After confirmation it is deleted and saved into Evento.
 class PendingAgendamento(models.Model):
     confirmation_token = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
     terapeuta = models.ForeignKey(CustomUser, related_name='pending_terapeuta', on_delete=models.CASCADE)

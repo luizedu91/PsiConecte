@@ -155,3 +155,7 @@ EMAIL_HOST_PASSWORD = 'Bhnjmk91'
 INTERNAL_IPS = [
     "127.0.0.1"]
 
+
+PAGSEGURO_EMAIL = 'your_pagseguro_email'
+PAGSEGURO_TOKEN = 'your_pagseguro_token'
+PAGSEGURO_SANDBOX = True  # Set to False for production

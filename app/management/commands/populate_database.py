@@ -36,7 +36,8 @@ class Command(BaseCommand):
                 preco=random.randint(5, 70),
                 user_type='terapeuta',
                 mandar_email = True,
-                mandar_whats = True
+                mandar_whats = True,
+                limite_eventos = 10,
             )
             user.idioma.set(random.sample(linguas, random.randint(1, 3)))
             user.especialidade = random_especialidade

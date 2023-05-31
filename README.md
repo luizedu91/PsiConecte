@@ -1,0 +1,17 @@
+# PsiConecte
+#### Video Demo:  https://www.youtube.com/watch?v=2B4P2V_riBY&feature=youtu.be
+#### Description:
+
+The PsiConecte network is designed to facilitate connections between budget therapists and patients in Brazil. Currently, there is no centralized database for individuals seeking or offering affordable therapy services in the country. As a result, people have to rely on word of mouth to find suitable therapists or patients. The PsiConecte platform aims to bridge this gap by creating a comprehensive network that will benefit both individuals in need of therapy and new therapists seeking to gain valuable clinical experience. The name "PsiConecte" is a clever play on the phrase "se conecte," which translates to "get connected" in English.
+
+This network has been developed using Django 4. While the platform is currently functional, the frontend has not been extensively developed. The plan is to continue working on it, enhancing its features and aesthetics, ultimately turning it into a full-fledged service.
+
+As with any Django-based website, the PsiConecte platform is organized into separate apps. In this case, there is just one app named "app," which contains several essential files. These include Models.py, which structures the SQLite database; Views.py, which manages how and what to render for each URL (with routes defined in urls.py); Forms.py, which defines the various forms called in Views; and a collection of HTML templates that are populated by data sent from the view function. Most of the code is commented for ease of understanding and collaboration. And although many of the names are in Portuguese (often mixed with English), I believe with comments, context, and the proximity of the languages this will not be a problem.
+
+In Models, there are basically two strucutres: CustomUser, a User model with fields for both therapists and patients, along with user_type; and Evento, a model to save appointments. Besides Evento, there is algo PendingAgendamento, which is used to temporarily save appointments for the time between the sending of the confirmation email and the actual confirmation of the appointment.
+
+The platform's basic design utilizes Bootstrap 5 for its layout (which, although responsive, has not yet been optmized for mobile), while forms are created using crispy_forms. Cities and states are populated with the cities_light package, and a dedicated View along with some JavaScript/AJAX code allows the cities field to be populated based on the selected state. Since the platform is intended for use in Brazil, only Brazilian states and cities are included in the database. The calendar on the homepage is implemented using FullCalendar, with custom JavaScript code to suit the specific needs of the project (arguably the most challenging aspect of the development process).
+
+To set up the database from scratch, after running the migration, it is necessary to execute cities_light (python manage.py cities_light), followed by populate_database and then populate_appointments.
+
+Some outstanding tasks include refining the frontend, incorporating WhatsApp functionality, adding a payment processing system, and considering the inclusion of advertisements. Since the current plan is to outsource some of these tasks, the project will no longer be the product of only my work, and has hence been submitted in its current state.

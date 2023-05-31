@@ -3,8 +3,11 @@
 {% load static %}
 
 {%load crispy_forms_tags %} 
-
-
+<style>
+    option:disabled {
+      color: gray;
+    }
+</style>
 
 <main>
     <section class="dashboard-section bg-light">
@@ -21,6 +24,39 @@
 </section>
 </main>
 
+<script>
+    function updateTerapeutaOptions() {
+    const selected_date = document.querySelector("#horario-field").value;
+    if (selected_date) {
+        fetch(`/available_terapeutas/?selected_date=${selected_date}`, {
+            method: "GET",
+            headers: {
+                "Content-Type": "application/json",
+                "Accept": "application/json",
+            },
+        })
+            .then(response => response.json())
+            .then(responseData => {
+                const terapeutaField = document.querySelector("#terapeuta-field");
+                terapeutaField.innerHTML = "";
+                const available_terapeutas = responseData;
+
+                if (Array.isArray(available_terapeutas)) {
+                    available_terapeutas.forEach(terapeuta => {
+                        const option = document.createElement("option");
+                        option.value = terapeuta.uuid;
+                        option.text = terapeuta.nome;
+                        terapeutaField.add(option);
+                    });
+                } else {
+                    console.error("available_terapeutas is not an array:", available_terapeutas);
+                }
+            })
+            .catch(error => console.error("Error fetching available terapeutas:", error));
+    }
+    }
+    document.querySelector("#horario-field").addEventListener("change", updateTerapeutaOptions);
+</script>
 
 
 {% endblock content %}

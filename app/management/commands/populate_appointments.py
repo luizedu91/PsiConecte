@@ -6,8 +6,6 @@ from django.utils import timezone
 
 
 class Command(BaseCommand):
-    help = 'Populates the database with sample appointments.'
-
     def handle(self, *args, **options):
         num_appointments = 200
 
@@ -25,4 +23,4 @@ class Command(BaseCommand):
             
             evento.save()
 
-        self.stdout.write(self.style.SUCCESS('Successfully populated the database with appointments.'))
+        self.stdout.write(self.style.SUCCESS('Database populated with appointments.'))

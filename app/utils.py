@@ -1,16 +1,18 @@
 from datetime import timedelta
-from django.db.models import Count
+from django.utils import timezone
 from .models import *
-from django.core.exceptions import ValidationError
 
-def terapeutas_disponiveis(queryset, data):
-    terapeutas_disponiveis = []
-    for terapeuta in queryset:
-        if contar_eventos(terapeuta, data) < terapeuta.limite_eventos:
-            terapeutas_disponiveis.append(terapeuta) 
-    return terapeutas_disponiveis
 
-def contar_eventos(terapeuta, datetime):
-    start_date = datetime.replace(day=1)
-    end_date = (start_date + timedelta(days=32)).replace(day=1)
-    return Evento.objects.filter(terapeuta=terapeuta, date__range=(start_date, end_date)).count()
+#Function to calculate the number of appointments a therapist has in a given month. Necessary to avoid creating more appointments than their set cap.
+def n_eventos_mes(data, terapeuta):
+    appointment_month_start = timezone.make_aware(data.replace(day=1, hour=0, minute=0, second=0, microsecond=0))
+    appointment_month_end = appointment_month_start + timedelta(days=31)
+    appointment_month_end = appointment_month_end.replace(day=1)
+
+    appointments_in_month = Evento.objects.filter(
+        terapeuta=terapeuta,
+        horario__gte=appointment_month_start,
+        horario__lt=appointment_month_end
+    ).count()
+
+    return appointments_in_month
